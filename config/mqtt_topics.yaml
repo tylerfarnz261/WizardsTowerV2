@@ -3,7 +3,7 @@
 
 # MQTT Broker Settings
 mqtt:
-  broker_host: "192.168.1.100"  # IP of Pi hosting MQTT broker
+  broker_host: "192.168.0.194"  # IP of Pi hosting MQTT broker
   broker_port: 1883
   username: ""  # Set if authentication required
   password: ""  # Set if authentication required
