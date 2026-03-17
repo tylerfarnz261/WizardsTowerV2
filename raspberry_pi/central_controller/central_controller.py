@@ -528,5 +528,5 @@ class CentralController:
 
 if __name__ == "__main__":
     # Initialize and run the central controller
-    controller = CentralController("/home/pi/escape_room_controller/config")
+    controller = CentralController("/home/pi/Wizards/config")
     controller.run()

@@ -753,7 +753,7 @@ class RuneController:
 
 if __name__ == "__main__":
     # Initialize and run the rune controller
-    controller = RuneController("/home/pi/escape_room_controller/config")
+    controller = RuneController("/home/pi/Wizards/config")
     try:
         controller.run()
     except KeyboardInterrupt:

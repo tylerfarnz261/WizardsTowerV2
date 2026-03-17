@@ -21,7 +21,7 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 # Configuration
-PROJECT_DIR="/home/pi/escape_room_controller"
+PROJECT_DIR="/home/pi/Wizards"
 VENV_DIR="$PROJECT_DIR/venv"
 USER="pi"
 
