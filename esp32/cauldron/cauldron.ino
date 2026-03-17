@@ -1,5 +1,5 @@
 /*
-  Escape Room - Cauldron ESP32 Controller
+  Wizards - Cauldron ESP32 Controller
   =======================================
   
   This ESP32 controls the cauldron input and sends serial commands
@@ -16,7 +16,7 @@
   - Publishes: escaperoom/esp32/cauldron/pressed
   - Publishes: escaperoom/gamestate/cauldron_solved
   
-  Author: Escape Room Control System
+  Author: Wizards Control System
 */
 
 #include <WiFi.h>

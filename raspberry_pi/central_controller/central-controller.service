@@ -1,5 +1,5 @@
 [Unit]
-Description=Escape Room Central Controller
+Description=Wizards Central Controller
 After=network.target mosquitto.service
 Wants=network.target
 Requires=mosquitto.service
@@ -8,15 +8,15 @@ Requires=mosquitto.service
 Type=simple
 User=pi
 Group=pi
-WorkingDirectory=/home/pi/escape_room_controller/raspberry_pi/central_controller
-ExecStart=/bin/bash /home/pi/escape_room_controller/raspberry_pi/central_controller/start_central_controller.sh
+WorkingDirectory=/home/pi/wizards/raspberry_pi/central_controller
+ExecStart=/bin/bash /home/pi/wizards/raspberry_pi/central_controller/start_central_controller.sh
 Restart=always
 RestartSec=5
 StandardOutput=journal
 StandardError=journal
 
 # Environment variables
-Environment=PYTHONPATH=/home/pi/escape_room_controller
+Environment=PYTHONPATH=/home/pi/wizards
 Environment=FLASK_APP=central_controller.py
 Environment=FLASK_ENV=production
 

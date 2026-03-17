@@ -1,4 +1,4 @@
-# Python Requirements for Escape Room Control System
+# Python Requirements for Wizards Control System
 # ==================================================
 
 # Flask web framework
@@ -9,7 +9,7 @@ flask-cors==4.0.0
 paho-mqtt==1.6.1
 
 # GPIO and I2C libraries for Raspberry Pi
-RPi.GPIO==0.7.1
+gpiozero==1.6.2
 adafruit-circuitpython-mcp230xx==2.5.10
 adafruit-circuitpython-busdevice==5.2.9
 

@@ -1,5 +1,5 @@
 /*
-  Escape Room - Cheese ESP32 Controller
+  Wizards - Cheese ESP32 Controller
   =====================================
   
   This ESP32 controls the cheese input sensor.
@@ -15,7 +15,7 @@
   - Publishes: escaperoom/esp32/cheese/pressed
   - Publishes: escaperoom/audio/cheese (for audio request)
   
-  Author: Escape Room Control System
+  Author: Wizards Control System
 */
 
 #include <WiFi.h>

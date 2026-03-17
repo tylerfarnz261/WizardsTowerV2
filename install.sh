@@ -1,14 +1,14 @@
 #!/bin/bash
 """
-Escape Room Controller - Installation Script
-============================================
+Wizards Controller - Installation Script
+========================================
 
 This script automates the installation process for the Raspberry Pi controllers.
-Run this on each Raspberry Pi to set up the escape room control system.
+Run this on each Raspberry Pi to set up the wizards control system.
 
 Usage: ./install.sh [rune|central]
 
-Author: Escape Room Control System
+Author: Wizards Control System
 """
 
 set -e  # Exit on any error
@@ -21,7 +21,7 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 # Configuration
-PROJECT_DIR="/home/pi/escape_room_controller"
+PROJECT_DIR="/home/pi/wizards"
 VENV_DIR="$PROJECT_DIR/venv"
 USER="pi"
 
@@ -113,7 +113,7 @@ setup_mqtt_broker() {
     print_status "Setting up MQTT broker..."
     
     # Copy configuration
-    sudo cp "$PROJECT_DIR/config/mosquitto.conf" /etc/mosquitto/conf.d/escape_room.conf
+    sudo cp "$PROJECT_DIR/config/mosquitto.conf" /etc/mosquitto/conf.d/wizards.conf
     
     # Enable and start Mosquitto
     sudo systemctl enable mosquitto

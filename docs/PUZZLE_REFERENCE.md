@@ -1,4 +1,4 @@
-# Escape Room Puzzle Reference Guide
+# Wizards Puzzle Reference Guide
 
 ## Game Flow Overview
 

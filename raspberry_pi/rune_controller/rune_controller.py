@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Escape Room Rune Controller
-===========================
+Wizards Rune Controller
+======================
 
 This module controls the rune system using MCP23017 GPIO expanders.
 Each rune has an input button and output light with specific behaviors.
@@ -18,7 +18,7 @@ Hardware:
 - Multiple runes with buttons and LEDs
 - MQTT network connectivity
 
-Author: Escape Room Control System
+Author: Wizards Control System
 """
 
 import time
@@ -33,7 +33,7 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 import paho.mqtt.client as mqtt
 import requests
-import RPi.GPIO as GPIO
+from gpiozero import Button, LED
 import busio
 import digitalio
 import board
@@ -113,10 +113,6 @@ class RuneController:
     def _init_i2c_and_gpio(self):
         """Initialize I2C connection and MCP23017 GPIO expander + GPIO pins."""
         try:
-            # Initialize GPIO for Pi pins
-            GPIO.setmode(GPIO.BCM)
-            GPIO.setwarnings(False)
-            
             # Initialize I2C
             self.i2c = busio.I2C(board.SCL, board.SDA)
             
@@ -141,23 +137,26 @@ class RuneController:
                 self.rune_buttons[rune_name] = ('mcp', button_pin)
                 self.rune_lights[rune_name] = ('mcp', light_pin)
             
-            # Setup GPIO runes (Mirror + Shadow + Paradox runes)
+            # Setup GPIO runes (Mirror + Shadow + Paradox runes) using GPIOZero
             for rune_name, pins in self.config['rune_controller']['gpio_runes'].items():
                 button_pin_num = pins['button_pin']
                 light_pin_num = pins['light_pin']
                 
-                # Setup button pin
-                GPIO.setup(button_pin_num, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+                # Create GPIOZero devices
+                button_device = Button(button_pin_num, pull_up=True)
+                light_device = LED(light_pin_num)
                 
-                # Setup light pin
-                GPIO.setup(light_pin_num, GPIO.OUT)
-                GPIO.output(light_pin_num, GPIO.LOW)
+                # Turn off LED initially
+                light_device.off()
                 
-                self.rune_buttons[rune_name] = ('gpio', button_pin_num)
-                self.rune_lights[rune_name] = ('gpio', light_pin_num)
+                self.rune_buttons[rune_name] = ('gpio', button_device)
+                self.rune_lights[rune_name] = ('gpio', light_device)
             
-            # Track previous button states for edge detection
-            self.prev_button_states = {name: True for name in self.rune_buttons.keys()}
+            # Track previous button states for edge detection (only for MCP buttons)
+            self.prev_button_states = {}
+            for name, (pin_type, button_pin) in self.rune_buttons.items():
+                if pin_type == 'mcp':
+                    self.prev_button_states[name] = True  # MCP buttons need edge detection
             
             logger.info(f"GPIO and I2C initialized with {len(self.rune_buttons)} runes")
             logger.info(f"MCP23017 runes: {list(self.config['rune_controller']['runes'].keys())}")
@@ -549,11 +548,11 @@ class RuneController:
         self.active_rune = None
         self.active_rune_start_time = None
         
-        for rune_name, (pin_type, light_pin) in self.rune_lights.items():
+        for rune_name, (pin_type, light_device) in self.rune_lights.items():
             if pin_type == 'mcp':
-                light_pin.value = False
-            else:  # GPIO pin
-                GPIO.output(light_pin, GPIO.LOW)
+                light_device.value = False
+            else:  # GPIOZero LED
+                light_device.off()
         
         logger.info("All runes deactivated")
     
@@ -564,11 +563,11 @@ class RuneController:
             self.active_rune_start_time = None
             
         if rune_name in self.rune_lights:
-            pin_type, light_pin = self.rune_lights[rune_name]
+            pin_type, light_device = self.rune_lights[rune_name]
             if pin_type == 'mcp':
-                light_pin.value = False
-            else:  # GPIO pin
-                GPIO.output(light_pin, GPIO.LOW)
+                light_device.value = False
+            else:  # GPIOZero LED
+                light_device.off()
             
         logger.info(f"Rune {rune_name} deactivated")
     
@@ -600,19 +599,31 @@ class RuneController:
                     time.sleep(0.1)
                     continue
                 
-                for rune_name, (pin_type, button_pin) in self.rune_buttons.items():
+                for rune_name, (pin_type, button_device) in self.rune_buttons.items():
                     if pin_type == 'mcp':
-                        current_state = button_pin.value
-                    else:  # GPIO pin
-                        current_state = GPIO.input(button_pin)
-                    
-                    prev_state = self.prev_button_states[rune_name]
-                    
-                    # Detect button press (falling edge)
-                    if prev_state and not current_state:
-                        self._handle_rune_press(rune_name)
-                    
-                    self.prev_button_states[rune_name] = current_state
+                        # MCP23017 buttons - use edge detection as before
+                        current_state = button_device.value
+                        prev_state = self.prev_button_states[rune_name]
+                        
+                        # Detect button press (falling edge)
+                        if prev_state and not current_state:
+                            self._handle_rune_press(rune_name)
+                        
+                        self.prev_button_states[rune_name] = current_state
+                        
+                    else:  # GPIOZero button
+                        # GPIOZero buttons - check if pressed (inverted logic since we use pull-up)
+                        if button_device.is_pressed:
+                            # Simple debouncing - check if this is a new press
+                            if not hasattr(button_device, '_was_pressed'):
+                                button_device._was_pressed = False
+                            
+                            if not button_device._was_pressed:
+                                self._handle_rune_press(rune_name)
+                                button_device._was_pressed = True
+                        else:
+                            if hasattr(button_device, '_was_pressed'):
+                                button_device._was_pressed = False
                 
                 time.sleep(0.05)  # 50ms polling interval
                 
@@ -700,11 +711,14 @@ class RuneController:
                         light_on = pulse_cycle < pulse_interval
                         
                         if self.active_rune in self.rune_lights:
-                            pin_type, light_pin = self.rune_lights[self.active_rune]
+                            pin_type, light_device = self.rune_lights[self.active_rune]
                             if pin_type == 'mcp':
-                                light_pin.value = light_on
-                            else:  # GPIO pin
-                                GPIO.output(light_pin, GPIO.HIGH if light_on else GPIO.LOW)
+                                light_device.value = light_on
+                            else:  # GPIOZero LED
+                                if light_on:
+                                    light_device.on()
+                                else:
+                                    light_device.off()
                 
                 time.sleep(0.1)
                 
@@ -727,9 +741,9 @@ class RuneController:
             self.cleanup()
     
     def cleanup(self):
-        """Cleanup GPIO and connections."""
+        """Cleanup resources and connections."""
         try:
-            GPIO.cleanup()
+            # GPIOZero handles GPIO cleanup automatically
             self.mqtt_client.loop_stop()
             self.mqtt_client.disconnect()
             logger.info("Cleanup completed")
@@ -738,7 +752,7 @@ class RuneController:
 
 if __name__ == "__main__":
     # Initialize and run the rune controller
-    controller = RuneController("/home/pi/escape_room_controller/config")
+    controller = RuneController("/home/pi/wizards/config")
     try:
         controller.run()
     except KeyboardInterrupt:

@@ -74,8 +74,8 @@ sudo apt update && sudo apt upgrade -y
 sudo apt install python3-pip python3-venv git -y
 
 # Clone project (or copy files)
-git clone <your-repo-url> /home/pi/escape_room_controller
-cd /home/pi/escape_room_controller
+git clone <your-repo-url> /home/pi/wizards
+cd /home/pi/wizards
 
 # Create virtual environment
 python3 -m venv venv
@@ -102,7 +102,7 @@ sudo i2cdetect -y 1
 sudo apt install mosquitto mosquitto-clients -y
 
 # Copy configuration
-sudo cp /home/pi/escape_room_controller/config/mosquitto.conf /etc/mosquitto/conf.d/escape_room.conf
+sudo cp /home/pi/wizards/config/mosquitto.conf /etc/mosquitto/conf.d/wizards.conf
 
 # Enable and start Mosquitto
 sudo systemctl enable mosquitto
@@ -118,10 +118,10 @@ mosquitto_sub -h localhost -t test/topic
 **Rune Controller Service:**
 ```bash
 # Copy service file
-sudo cp /home/pi/escape_room_controller/raspberry_pi/rune_controller/rune-controller.service /etc/systemd/system/
+sudo cp /home/pi/wizards/raspberry_pi/rune_controller/rune-controller.service /etc/systemd/system/
 
 # Make startup script executable
-chmod +x /home/pi/escape_room_controller/raspberry_pi/rune_controller/start_rune_controller.sh
+chmod +x /home/pi/wizards/raspberry_pi/rune_controller/start_rune_controller.sh
 
 # Enable and start service
 sudo systemctl enable rune-controller
@@ -134,10 +134,10 @@ sudo systemctl status rune-controller
 **Central Controller Service:**
 ```bash
 # Copy service file
-sudo cp /home/pi/escape_room_controller/raspberry_pi/central_controller/central-controller.service /etc/systemd/system/
+sudo cp /home/pi/wizards/raspberry_pi/central_controller/central-controller.service /etc/systemd/system/
 
 # Make startup script executable  
-chmod +x /home/pi/escape_room_controller/raspberry_pi/central_controller/start_central_controller.sh
+chmod +x /home/pi/wizards/raspberry_pi/central_controller/start_central_controller.sh
 
 # Enable and start service
 sudo systemctl enable central-controller
@@ -341,7 +341,7 @@ curl -X POST http://192.168.1.102:5002/reset
 ### Backup and Recovery
 ```bash
 # Backup configuration
-tar -czf escape_room_backup_$(date +%Y%m%d).tar.gz /home/pi/escape_room_controller/config/
+tar -czf wizards_backup_$(date +%Y%m%d).tar.gz /home/pi/wizards/config/
 
 # Backup entire system (from external computer)
 sudo dd if=/dev/mmcblk0 of=pi_backup_$(date +%Y%m%d).img bs=4M status=progress
@@ -370,4 +370,4 @@ sudo dd if=/dev/mmcblk0 of=pi_backup_$(date +%Y%m%d).img bs=4M status=progress
 - Adjust rune behaviors in Rune Controller
 - Update trigger conditions in Central Controller
 
-This system provides a robust, expandable platform for complex escape room experiences with centralized control and distributed sensing.
+This system provides a robust, expandable platform for complex wizards experiences with centralized control and distributed sensing.

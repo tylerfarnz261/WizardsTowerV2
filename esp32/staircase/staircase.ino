@@ -1,5 +1,5 @@
 /*
-  Escape Room - Staircase ESP32 Controller
+  Wizards - Staircase ESP32 Controller
   ========================================
   
   This ESP32 controls the staircase puzzle with 5 buttons and NeoPixel strips.
@@ -15,7 +15,7 @@
   MQTT Topics:
   - Publishes: escaperoom/esp32/staircase/solved
   
-  Author: Escape Room Control System
+  Author: Wizards Control System
 */
 
 #include <WiFi.h>

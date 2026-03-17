@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-Escape Room Central Controller
-==============================
+Wizards Central Controller
+==========================
 
-This module serves as the central controller for the escape room system.
+This module serves as the central controller for the wizards system.
 It manages all maglocks, coordinates game logic, and serves as the main
 MQTT message hub.
 
@@ -19,7 +19,7 @@ Hardware:
 - MQTT broker (Mosquitto)
 - Network connectivity to all ESP32 devices
 
-Author: Escape Room Control System
+Author: Wizards Control System
 """
 
 import time
@@ -32,7 +32,7 @@ from datetime import datetime, timedelta
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 import paho.mqtt.client as mqtt
-import RPi.GPIO as GPIO
+from gpiozero import LED
 
 # Configure logging
 logging.basicConfig(
@@ -46,7 +46,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 class CentralController:
-    """Main central controller class for escape room management."""
+    """Main central controller class for wizards management."""
     
     def __init__(self, config_path: str = "/config"):
         """Initialize the central controller."""
@@ -111,22 +111,19 @@ class CentralController:
     def _init_gpio(self):
         """Initialize GPIO pins for maglock control."""
         try:
-            GPIO.setmode(GPIO.BCM)
-            GPIO.setwarnings(False)
-            
-            # Setup maglock pins
-            self.maglock_pins = {}
+            # Setup maglock pins using GPIOZero LEDs (for relay control)
+            self.maglock_devices = {}
             for maglock_name, pin_num in self.config['central_controller']['maglocks'].items():
-                GPIO.setup(pin_num, GPIO.OUT)
-                GPIO.output(pin_num, GPIO.LOW)  # Start with maglocks engaged (LOW)
-                self.maglock_pins[maglock_name] = pin_num
+                led_device = LED(pin_num)
+                led_device.off()  # Start with maglocks engaged (OFF = LOW = locked)
+                self.maglock_devices[maglock_name] = led_device
             
             # Setup other output pins
-            self.other_pins = {}
+            self.other_devices = {}
             for output_name, pin_num in self.config['central_controller']['other_outputs'].items():
-                GPIO.setup(pin_num, GPIO.OUT) 
-                GPIO.output(pin_num, GPIO.LOW)
-                self.other_pins[output_name] = pin_num
+                led_device = LED(pin_num)
+                led_device.off()  # Start with outputs OFF
+                self.other_devices[output_name] = led_device
             
             logger.info("GPIO initialized successfully")
             
@@ -266,9 +263,9 @@ class CentralController:
     def _unlock_maglock(self, maglock_name: str):
         """Unlock a specific maglock."""
         try:
-            if maglock_name in self.maglock_pins:
-                pin = self.maglock_pins[maglock_name]
-                GPIO.output(pin, GPIO.HIGH)  # HIGH signal unlocks maglock
+            if maglock_name in self.maglock_devices:
+                device = self.maglock_devices[maglock_name]
+                device.on()  # HIGH signal unlocks maglock
                 self.game_state['maglock_states'][maglock_name] = True
                 
                 logger.info(f"Unlocked maglock: {maglock_name}")
@@ -283,9 +280,9 @@ class CentralController:
     def _lock_maglock(self, maglock_name: str):
         """Lock a specific maglock."""
         try:
-            if maglock_name in self.maglock_pins:
-                pin = self.maglock_pins[maglock_name]
-                GPIO.output(pin, GPIO.LOW)  # LOW signal locks maglock
+            if maglock_name in self.maglock_devices:
+                device = self.maglock_devices[maglock_name]
+                device.off()  # LOW signal locks maglock
                 self.game_state['maglock_states'][maglock_name] = False
                 
                 logger.info(f"Locked maglock: {maglock_name}")
@@ -489,9 +486,9 @@ class CentralController:
                 time.sleep(30)
     
     def cleanup(self):
-        """Cleanup GPIO and connections."""
+        """Cleanup resources and connections."""
         try:
-            GPIO.cleanup()
+            # GPIOZero handles GPIO cleanup automatically
             self.mqtt_client.loop_stop()
             self.mqtt_client.disconnect()
             logger.info("Cleanup completed")
@@ -514,5 +511,5 @@ class CentralController:
 
 if __name__ == "__main__":
     # Initialize and run the central controller
-    controller = CentralController("/home/pi/escape_room_controller/config")
+    controller = CentralController("/home/pi/wizards/config")
     controller.run()
