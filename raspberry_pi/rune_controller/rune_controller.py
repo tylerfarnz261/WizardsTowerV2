@@ -324,13 +324,13 @@ class RuneController:
             
             # Fire rune for fireplace door
             elif rune_name == 'fire_fireplace':
-                self._publish_mqtt(self.config['maglocks']['fireplace_door'], 'unlock')
-                actions.append("Unlocked fireplace door")
+                self._publish_mqtt(self.config['runes']['fire_fireplace'], 'true')  # Publish to rune topic
+                actions.append("Fire fireplace rune activated - sent to central controller")
                 
                 # Deactivate fireplace rune after successful casting
                 self.game_state['fireplace_rune_disabled'] = True
                 actions.append("Fireplace rune permanently disabled")
-                logger.info("Fireplace rune disabled permanently after unlocking door")
+                logger.info("Fireplace rune disabled permanently after successful casting")
             
             # Dream rune with owl and audio
             elif rune_name == 'dream_owl':
@@ -346,13 +346,13 @@ class RuneController:
             # Dream rune for rat cage
             elif rune_name == 'dream_rat_cage':
                 if self.game_state['dream_runes_unlocked']:
-                    self._play_audio_then_unlock_rat_cage()
-                    actions.append("Playing audio then unlocking rat cage")
+                    self._play_audio_then_activate_rat_rune()
+                    actions.append("Playing audio then activating rat cage rune")
                     
                     # Deactivate rat rune after successful casting
                     self.game_state['rat_rune_disabled'] = True
                     actions.append("Rat rune permanently disabled")
-                    logger.info("Rat rune disabled permanently after unlocking cage")
+                    logger.info("Rat rune disabled permanently after successful casting")
                 else:
                     actions.append("Dream rune locked - cauldron not solved")
             
@@ -463,22 +463,23 @@ class RuneController:
         except Exception as e:
             logger.error(f"Error turning off spotlight: {e}")
     
-    def _play_audio_then_unlock_rat_cage(self):
-        """Play audio then unlock rat cage."""
+    def _play_audio_then_activate_rat_rune(self):
+        """Play audio then send rat cage activation to central controller."""
         try:
             # Play audio
             event_name = self.config['audio']['audio_events']['dream_rune']
             self._request_audio_play(event_name)
             
-            # Unlock rat cage after audio (assuming 10 seconds)
-            threading.Timer(10.0, self._unlock_rat_cage).start()
+            # Send rat cage activation to central controller after audio (assuming 10 seconds)
+            threading.Timer(10.0, self._send_rat_cage_activation).start()
             
         except Exception as e:
-            logger.error(f"Error in audio then rat cage unlock: {e}")
+            logger.error(f"Error in audio then rat cage activation: {e}")
     
-    def _unlock_rat_cage(self):
-        """Unlock the rat cage."""
-        self._publish_mqtt(self.config['maglocks']['rat_cage'], 'unlock')
+    def _send_rat_cage_activation(self):
+        """Send rat cage activation signal to central controller."""
+        self._publish_mqtt(self.config['runes']['dream_rat_cage'], 'true')
+        logger.info("Sent rat cage activation to central controller")
     
     def _request_audio_play(self, event_name: str):
         """Request audio play from Windows event listener."""
