@@ -1,0 +1,107 @@
+# MQTT Topic Configuration for Escape Room Control System
+# ==========================================================
+
+# MQTT Broker Settings
+mqtt:
+  broker_host: "192.168.1.100"  # IP of Pi hosting MQTT broker
+  broker_port: 1883
+  username: ""  # Set if authentication required
+  password: ""  # Set if authentication required
+  keepalive: 60
+
+# System Topics
+system:
+  game_state: "escaperoom/system/game_state"  # PLAYING, RESET, MAINTENANCE
+  reset_game: "escaperoom/system/reset"
+  maintenance: "escaperoom/system/maintenance"
+
+# Rune Controller Topics
+runes:
+  # Rune activation (published by rune controller)
+  fire_torch_1: "escaperoom/runes/fire/torch1"
+  fire_torch_2: "escaperoom/runes/fire/torch2"   
+  fire_torch_3: "escaperoom/runes/fire/torch3"
+  fire_torch_4: "escaperoom/runes/fire/torch4"
+  fire_torch_5: "escaperoom/runes/fire/torch5"
+  fire_fireplace: "escaperoom/runes/fire/fireplace"
+  dream_owl: "escaperoom/runes/dream/owl"
+  dream_rat_cage: "escaperoom/runes/dream/rat_cage"
+  mirror_1: "escaperoom/runes/mirror/mirror1"
+  mirror_2: "escaperoom/runes/mirror/mirror2"
+  shadow_realm: "escaperoom/runes/shadow/realm"
+  paradox: "escaperoom/runes/paradox/activate"
+  
+  # Rune system control
+  enable: "escaperoom/runes/enable"  # Enable/disable rune system
+  spell_success: "escaperoom/runes/spell_success"
+
+# ESP32 Input Topics
+esp32:
+  # Wand Cabinet
+  wand_cabinet: "escaperoom/esp32/wand_cabinet/opened"
+  
+  # Cross/Purple Crystal
+  cross: "escaperoom/esp32/cross/pressed"
+  
+  # Cheese 
+  cheese: "escaperoom/esp32/cheese/pressed"
+  
+  # Cauldron
+  cauldron: "escaperoom/esp32/cauldron/pressed"
+  
+  # Dials
+  dials: "escaperoom/esp32/dials/solved"
+  
+  # Staircase
+  staircase: "escaperoom/esp32/staircase/solved"
+  
+  # Stone Crystals
+  crystals_first_four: "escaperoom/esp32/crystals/first_four_placed"
+  crystals_all_placed: "escaperoom/esp32/crystals/all_placed"
+  
+  # Watcher Paintings
+  watcher: "escaperoom/esp32/watcher/pressed"
+
+# Central Controller Topics (Maglock Control)
+maglocks:
+  paradox_compartment: "escaperoom/maglocks/paradox_compartment"
+  wand_cabinet: "escaperoom/maglocks/wand_cabinet" 
+  purple_crystal_compartment: "escaperoom/maglocks/purple_crystal_compartment"
+  rat_cage: "escaperoom/maglocks/rat_cage"
+  rat_trap_door: "escaperoom/maglocks/rat_trap_door"
+  fireplace_mantle: "escaperoom/maglocks/fireplace_mantle"
+  fireplace_door: "escaperoom/maglocks/fireplace_door"
+  treasure_chest: "escaperoom/maglocks/treasure_chest"
+  staircase_compartment: "escaperoom/maglocks/staircase_compartment"
+
+# Torch Control (for fireplace mantle logic)
+torches:
+  torch_1: "escaperoom/torches/torch1"
+  torch_2: "escaperoom/torches/torch2"
+  torch_3: "escaperoom/torches/torch3"
+  torch_4: "escaperoom/torches/torch4"
+  torch_5: "escaperoom/torches/torch5"
+
+# Audio System Topics
+audio:
+  play_request: "escaperoom/audio/play"  # Requests to Windows audio machine
+  dream_rune_audio: "escaperoom/audio/dream_rune"
+  cheese_audio: "escaperoom/audio/cheese"
+
+# Lighting Control Topics
+lighting:
+  blacklights: "escaperoom/lighting/blacklights"
+  spotlight: "escaperoom/lighting/spotlight"
+  mirror_backlight_1: "escaperoom/lighting/mirror1"
+  mirror_backlight_2: "escaperoom/lighting/mirror2"
+
+# Sprite Player Serial Commands
+sprite_players:
+  shadow_realm: "escaperoom/sprite/shadow_realm"
+  paradox: "escaperoom/sprite/paradox"
+
+# Game State Topics
+game_state:
+  cauldron_solved: "escaperoom/gamestate/cauldron_solved"
+  fireplace_sequence: "escaperoom/gamestate/fireplace_sequence"
+  win_condition: "escaperoom/gamestate/win"

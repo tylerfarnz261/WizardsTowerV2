@@ -1,0 +1,18 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.log
+venv/
+
+# Config files with secrets
+config/secrets.yaml
+config/wifi_passwords.yaml
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE files
+.vscode/settings.json
+.idea/

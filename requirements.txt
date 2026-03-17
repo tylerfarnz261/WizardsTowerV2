@@ -1,0 +1,35 @@
+# Python Requirements for Escape Room Control System
+# ==================================================
+
+# Flask web framework
+Flask==2.3.3
+flask-cors==4.0.0
+
+# MQTT client
+paho-mqtt==1.6.1
+
+# GPIO and I2C libraries for Raspberry Pi
+RPi.GPIO==0.7.1
+adafruit-circuitpython-mcp230xx==2.5.10
+adafruit-circuitpython-busdevice==5.2.9
+
+# Configuration file handling
+PyYAML==6.0.1
+
+# HTTP requests
+requests==2.31.0
+
+# Threading and async support
+asyncio==3.4.3
+
+# Logging
+logging==0.4.9.6
+
+# Time and scheduling
+schedule==1.2.0
+
+# JSON handling (built-in but good to specify)
+jsonschema==4.19.1
+
+# Serial communication (for ESP32 debugging if needed)
+pyserial==3.5

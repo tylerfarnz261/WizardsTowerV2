@@ -1,0 +1,218 @@
+# System Configuration for Escape Room Control System
+# ===================================================
+
+# Network Configuration
+network:
+  rune_controller_ip: "192.168.1.101"
+  central_controller_ip: "192.168.1.102"
+  mqtt_broker_ip: "192.168.1.100"  # Same as one of the Pi IPs
+  windows_audio_ip: "192.168.1.150"
+  windows_audio_port: 15000
+
+# Flask Server Configuration
+flask:
+  rune_controller_port: 5001
+  central_controller_port: 5002
+  debug: false
+
+# Rune Controller Configuration (MCP23017)
+rune_controller:
+  # MCP23017 I2C Configuration
+  i2c_address: 0x20
+  
+  # Rune timing configuration
+  rune_active_duration: 20  # seconds (easily adjustable)
+  rune_pulse_interval: 2    # seconds between light pulses
+  
+  # Pin mappings for MCP23017 (16 pins available: 0-15)
+  # Fire Runes (6) + Dream Runes (2) = 8 runes = 16 pins
+  runes:
+    # Fire Runes (6 total)
+    fire_torch_1:
+      button_pin: 0
+      light_pin: 1
+    fire_torch_2:
+      button_pin: 2
+      light_pin: 3
+    fire_torch_3:
+      button_pin: 4
+      light_pin: 5
+    fire_torch_4:
+      button_pin: 6
+      light_pin: 7
+    fire_torch_5:
+      button_pin: 8
+      light_pin: 9
+    fire_fireplace:
+      button_pin: 10
+      light_pin: 11
+    
+    # Dream Runes (2 total)
+    dream_owl:
+      button_pin: 12
+      light_pin: 13
+    dream_rat_cage:
+      button_pin: 14
+      light_pin: 15
+  
+  # GPIO pins for remaining runes (Mirror + Shadow + Paradox)
+  # Mirror Runes (2) + Shadow (1) + Paradox (1) = 4 runes = 8 GPIO pins
+  gpio_runes:
+    # Mirror Runes
+    mirror_1:
+      button_pin: 16  # GPIO 16
+      light_pin: 20   # GPIO 20
+    mirror_2:
+      button_pin: 21  # GPIO 21
+      light_pin: 26   # GPIO 26
+    
+    # Shadow Realm Rune
+    shadow_realm:
+      button_pin: 19  # GPIO 19
+      light_pin: 13   # GPIO 13
+    
+    # Paradox Rune  
+    paradox:
+      button_pin: 6   # GPIO 6
+      light_pin: 5    # GPIO 5
+
+# Central Controller Configuration
+central_controller:
+  # GPIO pin mappings for maglocks (using Pi GPIO pins)
+  maglocks:
+    paradox_compartment: 2
+    wand_cabinet: 3
+    purple_crystal_compartment: 4
+    rat_cage: 17
+    rat_trap_door: 27
+    fireplace_mantle: 22
+    fireplace_door: 10
+    treasure_chest: 9
+    staircase_compartment: 11
+  
+  # GPIO pins for other outputs
+  other_outputs:
+    relay_1: 18  # General purpose relay
+    relay_2: 23  # General purpose relay
+    relay_3: 24  # General purpose relay
+    relay_4: 25  # General purpose relay
+
+# ESP32 Configuration Templates
+esp32_config:
+  # WiFi settings (same for all ESP32s)
+  wifi:
+    ssid: "EscapeRoom_WiFi"
+    password: "YourWiFiPassword"
+  
+  # MQTT settings
+  mqtt:
+    server: "192.168.1.100"
+    port: 1883
+    
+  # Pin configurations for different ESP32 modules
+  pin_configs:
+    wand_cabinet:
+      input_pin: 2
+      debounce_delay: 50
+    
+    cross:
+      input_pin: 2
+      debounce_delay: 50
+    
+    cheese:
+      input_pin: 2
+      debounce_delay: 50
+    
+    cauldron:
+      input_pin: 2
+      serial_tx: 17
+      serial_rx: 16
+      debounce_delay: 50
+    
+    dials:
+      input_pin: 2
+      debounce_delay: 50
+    
+    staircase:
+      button_pins: [2, 4, 5, 18, 19]  # 5 stair buttons
+      neopixel_pin: 13
+      pixels_per_stair: 16
+      total_pixels: 80  # 5 stairs * 16 pixels
+      debounce_delay: 50
+    
+    stone_crystals:
+      crystal_pins: [2, 4, 5, 18, 19]  # RED, GREEN, BLUE, PURPLE, WHITE
+      debounce_delay: 50
+    
+    watcher_paintings:
+      input_pin: 2
+      debounce_delay: 50
+
+# Audio System Configuration
+audio:
+  # Windows machine settings
+  windows_audio:
+    ip: "192.168.1.150"
+    port: 80    # Standard HTTP port (or whatever your event listener uses)
+    timeout: 10  # seconds
+  
+  # Audio event mappings (sent as GET requests to Windows machine)
+  audio_events:
+    dream_rune: "dream_owl_sound"       # Legacy - kept for compatibility
+    cheese: "cheese_sound"
+    
+    # Owl rune sequence (3 in order, then random from next 3)
+    owl_sequence_1: "owl_discovery_1"     # First activation
+    owl_sequence_2: "owl_discovery_2"     # Second activation
+    owl_sequence_3: "owl_discovery_3"     # Third activation
+    owl_random_1: "owl_wisdom_1"          # Random pool option 1
+    owl_random_2: "owl_wisdom_2"          # Random pool option 2
+    owl_random_3: "owl_wisdom_3"          # Random pool option 3
+    
+    # Shadow rune events
+    shadow_first_time: "shadow_realm_discovery"  # First activation
+    shadow_repeat: "shadow_realm_return"         # All subsequent activations
+    
+    # Crystal placement events  
+    crystal_1_placed: "crystal_1_sound"
+    crystal_2_placed: "crystal_2_sound" 
+    crystal_3_placed: "crystal_3_sound"
+    first_four_crystals: "crystals_complete_fanfare"
+    
+    # Staircase events
+    step_activated: "step_sound"
+    staircase_complete: "staircase_victory"
+    
+    # Other puzzle events
+    wand_cabinet_solved: "wand_taken_sound"
+    purple_crystal_cross: "cross_placed_sound"
+    dials_solved: "dials_solved_sound"
+
+# Game Logic Configuration
+game_logic:
+  # Torch puzzle solution (fireplace mantle unlock)
+  torch_solution:
+    torch_1: true   # ON
+    torch_2: false  # OFF  
+    torch_3: false  # OFF
+    torch_4: true   # ON
+    torch_5: false  # OFF
+  
+  # Crystal placement sequence
+  crystal_sequence:
+    first_four: ["RED", "BLUE", "PURPLE", "WHITE"]
+    last: "GREEN"
+  
+  # Staircase color sequence (3 colors max per stair)
+  staircase_colors:
+    stair_1: ["RED", "GREEN", "BLUE"]
+    stair_2: ["PURPLE", "YELLOW", "CYAN"]
+    stair_3: ["ORANGE", "PINK", "WHITE"]
+    stair_4: ["MAGENTA", "LIME", "NAVY"]
+    stair_5: ["GOLD", "SILVER", "BRONZE"]
+
+# Debug and Logging Configuration
+debug:
+  log_level: "INFO"  # DEBUG, INFO, WARNING, ERROR
+  log_file: "/var/log/escaperoom.log"
+  mqtt_debug: false

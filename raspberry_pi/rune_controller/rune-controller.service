@@ -1,0 +1,23 @@
+[Unit]
+Description=Escape Room Rune Controller
+After=network.target
+Wants=network.target
+
+[Service]
+Type=simple
+User=pi
+Group=pi
+WorkingDirectory=/home/pi/escape_room_controller/raspberry_pi/rune_controller
+ExecStart=/bin/bash /home/pi/escape_room_controller/raspberry_pi/rune_controller/start_rune_controller.sh
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+# Environment variables
+Environment=PYTHONPATH=/home/pi/escape_room_controller
+Environment=FLASK_APP=rune_controller.py
+Environment=FLASK_ENV=production
+
+[Install]
+WantedBy=multi-user.target
