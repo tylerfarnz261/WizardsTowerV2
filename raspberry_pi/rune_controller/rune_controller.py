@@ -33,7 +33,7 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 import paho.mqtt.client as mqtt
 import requests
-import gpiod
+import RPi.GPIO as GPIO
 import busio
 import digitalio
 import board
@@ -83,8 +83,6 @@ class RuneController:
         }
         
         # Initialize hardware
-        self.gpio_chip = None
-        self.gpio_lines = {}  # Store GPIO line objects
         self._init_i2c_and_gpio()
         
         # Initialize MQTT
@@ -112,66 +110,12 @@ class RuneController:
             raise
         return config
     
-    def _detect_gpio_chip(self):
-        """Detect the correct GPIO chip for this Pi model."""
-        import os
-        import glob
-        
-        # First, let's see what GPIO chips are available
-        try:
-            # List all available GPIO chips
-            gpio_devices = glob.glob('/dev/gpiochip*')
-            logger.info(f"Available GPIO devices: {gpio_devices}")
-            
-            # Also check /sys/class/gpio/
-            sys_gpio = glob.glob('/sys/class/gpio/gpiochip*')
-            logger.info(f"Available sys GPIO chips: {sys_gpio}")
-            
-        except Exception as e:
-            logger.warning(f"Could not list GPIO devices: {e}")
-        
-        # Try common GPIO chip names
-        chip_candidates = ['gpiochip4', 'gpiochip0', 'gpiochip1', 'gpiochip2', 'gpiochip3']
-        
-        # Also try any chips we found in /dev/
-        try:
-            dev_chips = [os.path.basename(chip) for chip in glob.glob('/dev/gpiochip*')]
-            chip_candidates.extend([chip for chip in dev_chips if chip not in chip_candidates])
-            logger.info(f"Trying GPIO chip candidates: {chip_candidates}")
-        except Exception as e:
-            logger.warning(f"Could not scan /dev/ for GPIO chips: {e}")
-        
-        for chip_name in chip_candidates:
-            try:
-                chip = gpiod.Chip(chip_name)
-                logger.info(f"Successfully detected GPIO chip: {chip_name}")
-                logger.info(f"Chip info - Name: {chip.name}, Label: {chip.label}, Num lines: {chip.num_lines}")
-                return chip
-            except FileNotFoundError:
-                logger.debug(f"GPIO chip {chip_name} not found, trying next...")
-                continue
-            except Exception as e:
-                logger.warning(f"Error trying GPIO chip {chip_name}: {e}")
-                continue
-        
-        # If we still can't find any chips, provide detailed error info
-        error_msg = f"No suitable GPIO chip found. Tried: {chip_candidates}"
-        try:
-            # Add some system info to help debug
-            import subprocess
-            result = subprocess.run(['ls', '-la', '/dev/gpio*'], capture_output=True, text=True)
-            if result.stdout:
-                error_msg += f"\n/dev/gpio* contents: {result.stdout}"
-        except Exception:
-            pass
-        
-        raise RuntimeError(error_msg)
-
     def _init_i2c_and_gpio(self):
         """Initialize I2C connection and MCP23017 GPIO expander + GPIO pins."""
         try:
-            # Initialize GPIO chip with automatic detection
-            self.gpio_chip = self._detect_gpio_chip()
+            # Initialize GPIO for Pi pins
+            GPIO.setmode(GPIO.BCM)
+            GPIO.setwarnings(False)
             
             # Initialize I2C
             self.i2c = busio.I2C(board.SCL, board.SDA)
@@ -203,20 +147,14 @@ class RuneController:
                 light_pin_num = pins['light_pin']
                 
                 # Setup button pin
-                button_line = self.gpio_chip.get_line(button_pin_num)
-                button_line.request(consumer="rune_button", type=gpiod.LINE_REQ_DIR_IN, flags=gpiod.LINE_REQ_FLAG_BIAS_PULL_UP)
+                GPIO.setup(button_pin_num, GPIO.IN, pull_up_down=GPIO.PUD_UP)
                 
                 # Setup light pin
-                light_line = self.gpio_chip.get_line(light_pin_num)
-                light_line.request(consumer="rune_light", type=gpiod.LINE_REQ_DIR_OUT)
-                light_line.set_value(0)
+                GPIO.setup(light_pin_num, GPIO.OUT)
+                GPIO.output(light_pin_num, GPIO.LOW)
                 
-                # Store line objects
-                self.gpio_lines[f'{rune_name}_button'] = button_line
-                self.gpio_lines[f'{rune_name}_light'] = light_line
-                
-                self.rune_buttons[rune_name] = ('gpio', f'{rune_name}_button')
-                self.rune_lights[rune_name] = ('gpio', f'{rune_name}_light')
+                self.rune_buttons[rune_name] = ('gpio', button_pin_num)
+                self.rune_lights[rune_name] = ('gpio', light_pin_num)
             
             # Track previous button states for edge detection
             self.prev_button_states = {name: True for name in self.rune_buttons.keys()}
@@ -615,7 +553,7 @@ class RuneController:
             if pin_type == 'mcp':
                 light_pin.value = False
             else:  # GPIO pin
-                self.gpio_lines[light_pin].set_value(0)
+                GPIO.output(light_pin, GPIO.LOW)
         
         logger.info("All runes deactivated")
     
@@ -630,7 +568,7 @@ class RuneController:
             if pin_type == 'mcp':
                 light_pin.value = False
             else:  # GPIO pin
-                self.gpio_lines[light_pin].set_value(0)
+                GPIO.output(light_pin, GPIO.LOW)
             
         logger.info(f"Rune {rune_name} deactivated")
     
@@ -666,7 +604,7 @@ class RuneController:
                     if pin_type == 'mcp':
                         current_state = button_pin.value
                     else:  # GPIO pin
-                        current_state = self.gpio_lines[button_pin].get_value()
+                        current_state = GPIO.input(button_pin)
                     
                     prev_state = self.prev_button_states[rune_name]
                     
@@ -766,7 +704,7 @@ class RuneController:
                             if pin_type == 'mcp':
                                 light_pin.value = light_on
                             else:  # GPIO pin
-                                self.gpio_lines[light_pin].set_value(1 if light_on else 0)
+                                GPIO.output(light_pin, GPIO.HIGH if light_on else GPIO.LOW)
                 
                 time.sleep(0.1)
                 
@@ -791,15 +729,7 @@ class RuneController:
     def cleanup(self):
         """Cleanup GPIO and connections."""
         try:
-            # Release GPIO lines
-            for line in self.gpio_lines.values():
-                try:
-                    line.release()
-                except:
-                    pass
-            if self.gpio_chip:
-                self.gpio_chip.close()
-                
+            GPIO.cleanup()
             self.mqtt_client.loop_stop()
             self.mqtt_client.disconnect()
             logger.info("Cleanup completed")
@@ -808,7 +738,7 @@ class RuneController:
 
 if __name__ == "__main__":
     # Initialize and run the rune controller
-    controller = RuneController("/home/pi/Wizards/config")
+    controller = RuneController("/home/pi/escape_room_controller/config")
     try:
         controller.run()
     except KeyboardInterrupt:

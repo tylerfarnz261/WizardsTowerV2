@@ -7,15 +7,15 @@ Wants=network.target
 Type=simple
 User=pi
 Group=pi
-WorkingDirectory=/home/pi/Wizards/raspberry_pi/rune_controller
-ExecStart=/bin/bash /home/pi/Wizards/raspberry_pi/rune_controller/start_rune_controller.sh
+WorkingDirectory=/home/pi/escape_room_controller/raspberry_pi/rune_controller
+ExecStart=/bin/bash /home/pi/escape_room_controller/raspberry_pi/rune_controller/start_rune_controller.sh
 Restart=always
 RestartSec=5
 StandardOutput=journal
 StandardError=journal
 
 # Environment variables
-Environment=PYTHONPATH=/home/pi/Wizards
+Environment=PYTHONPATH=/home/pi/escape_room_controller
 Environment=FLASK_APP=rune_controller.py
 Environment=FLASK_ENV=production
 
