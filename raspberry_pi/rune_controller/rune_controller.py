@@ -257,19 +257,15 @@ class RuneController:
                 # Process the spell success for the active rune
                 result = self._process_spell_success(self.active_rune)
                 
-                # Check if rune should stay active (torch runes stay active)
-                if isinstance(result, dict) and result.get('rune_stays_active', False):
-                    logger.info(f"Rune {self.active_rune} stays active after spell success")
-                    # Don't deactivate - keep the rune active and pulsing
-                else:
-                    # Deactivate the current rune (normal behavior)
-                    self._deactivate_rune(self.active_rune)
+                # Always return rune to normal waiting state after spell success
+                # This stops the pulsing and makes it ready for new input
+                self._return_rune_to_normal_state(self.active_rune)
                 
                 return jsonify({
                     'status': 'success', 
                     'rune': result.get('rune', self.active_rune),
                     'actions': result.get('actions', []),
-                    'rune_stays_active': result.get('rune_stays_active', False)
+                    'message': 'Rune returned to normal state - ready for new input'
                 }), 200
                 
             except Exception as e:
@@ -322,11 +318,8 @@ class RuneController:
                 self._publish_mqtt(torch_topic, 'true')  # Tell central controller to toggle torch
                 actions.append(f"Toggled torch {torch_num} light (sent to central controller)")
                 
-                # DO NOT deactivate the rune - keep it active and lit
-                # The central controller will disable these runes when puzzle is solved
-                logger.info(f"Torch {torch_num} rune stays active - waiting for puzzle completion")
-                
-                return {'rune': rune_name, 'actions': actions, 'rune_stays_active': True}
+                logger.info(f"Torch {torch_num} rune spell success - torch light toggled")
+                return {'rune': rune_name, 'actions': actions}
             
             # Fire rune for fireplace door
             elif rune_name == 'fire_fireplace':
@@ -518,6 +511,23 @@ class RuneController:
                 light_device.off()
         
         logger.info("All runes deactivated")
+    
+    def _return_rune_to_normal_state(self, rune_name: str):
+        """Return rune to normal waiting state after spell success."""
+        # Clear active rune state
+        if self.active_rune == rune_name:
+            self.active_rune = None
+            self.active_rune_start_time = None
+            
+        # Turn off rune light
+        if rune_name in self.rune_lights:
+            pin_type, light_device = self.rune_lights[rune_name]
+            if pin_type == 'mcp':
+                light_device.value = False
+            else:  # GPIOZero LED
+                light_device.off()
+            
+        logger.info(f"Rune {rune_name} returned to normal state - ready for new input")
     
     def _deactivate_rune(self, rune_name: str):
         """Deactivate specific rune."""
