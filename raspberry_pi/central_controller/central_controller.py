@@ -110,19 +110,58 @@ class CentralController:
     
     def _detect_gpio_chip(self):
         """Detect the correct GPIO chip for this Pi model."""
-        # Common GPIO chip names to try
-        chip_candidates = ['gpiochip4', 'gpiochip0', 'gpiochip1']
+        import os
+        import glob
+        
+        # First, let's see what GPIO chips are available
+        try:
+            # List all available GPIO chips
+            gpio_devices = glob.glob('/dev/gpiochip*')
+            logger.info(f"Available GPIO devices: {gpio_devices}")
+            
+            # Also check /sys/class/gpio/
+            sys_gpio = glob.glob('/sys/class/gpio/gpiochip*')
+            logger.info(f"Available sys GPIO chips: {sys_gpio}")
+            
+        except Exception as e:
+            logger.warning(f"Could not list GPIO devices: {e}")
+        
+        # Try common GPIO chip names
+        chip_candidates = ['gpiochip4', 'gpiochip0', 'gpiochip1', 'gpiochip2', 'gpiochip3']
+        
+        # Also try any chips we found in /dev/
+        try:
+            dev_chips = [os.path.basename(chip) for chip in glob.glob('/dev/gpiochip*')]
+            chip_candidates.extend([chip for chip in dev_chips if chip not in chip_candidates])
+            logger.info(f"Trying GPIO chip candidates: {chip_candidates}")
+        except Exception as e:
+            logger.warning(f"Could not scan /dev/ for GPIO chips: {e}")
         
         for chip_name in chip_candidates:
             try:
                 chip = gpiod.Chip(chip_name)
                 logger.info(f"Successfully detected GPIO chip: {chip_name}")
+                logger.info(f"Chip info - Name: {chip.name}, Label: {chip.label}, Num lines: {chip.num_lines}")
                 return chip
             except FileNotFoundError:
                 logger.debug(f"GPIO chip {chip_name} not found, trying next...")
                 continue
+            except Exception as e:
+                logger.warning(f"Error trying GPIO chip {chip_name}: {e}")
+                continue
         
-        raise RuntimeError("No suitable GPIO chip found. Tried: " + ", ".join(chip_candidates))
+        # If we still can't find any chips, provide detailed error info
+        error_msg = f"No suitable GPIO chip found. Tried: {chip_candidates}"
+        try:
+            # Add some system info to help debug
+            import subprocess
+            result = subprocess.run(['ls', '-la', '/dev/gpio*'], capture_output=True, text=True)
+            if result.stdout:
+                error_msg += f"\n/dev/gpio* contents: {result.stdout}"
+        except Exception:
+            pass
+        
+        raise RuntimeError(error_msg)
 
     def _init_gpio(self):
         """Initialize GPIO pins for maglock control."""
