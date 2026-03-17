@@ -152,11 +152,13 @@ class RuneController:
                 self.rune_buttons[rune_name] = ('gpio', button_device)
                 self.rune_lights[rune_name] = ('gpio', light_device)
             
-            # Track previous button states for edge detection (only for MCP buttons)
+            # Track previous button states for edge detection
             self.prev_button_states = {}
-            for name, (pin_type, button_pin) in self.rune_buttons.items():
+            for name, (pin_type, button_device) in self.rune_buttons.items():
                 if pin_type == 'mcp':
                     self.prev_button_states[name] = True  # MCP buttons need edge detection
+                else:  # GPIO buttons also need state tracking
+                    self.prev_button_states[name] = False  # GPIO buttons start not pressed
             
             logger.info(f"GPIO and I2C initialized with {len(self.rune_buttons)} runes")
             logger.info(f"MCP23017 runes: {list(self.config['rune_controller']['runes'].keys())}")
@@ -576,7 +578,7 @@ class RuneController:
                 
                 for rune_name, (pin_type, button_device) in self.rune_buttons.items():
                     if pin_type == 'mcp':
-                        # MCP23017 buttons - use edge detection as before
+                        # MCP23017 buttons - use edge detection
                         current_state = button_device.value
                         prev_state = self.prev_button_states[rune_name]
                         
@@ -587,18 +589,15 @@ class RuneController:
                         self.prev_button_states[rune_name] = current_state
                         
                     else:  # GPIOZero button
-                        # GPIOZero buttons - check if pressed (inverted logic since we use pull-up)
-                        if button_device.is_pressed:
-                            # Simple debouncing - check if this is a new press
-                            if not hasattr(button_device, '_was_pressed'):
-                                button_device._was_pressed = False
-                            
-                            if not button_device._was_pressed:
-                                self._handle_rune_press(rune_name)
-                                button_device._was_pressed = True
-                        else:
-                            if hasattr(button_device, '_was_pressed'):
-                                button_device._was_pressed = False
+                        # GPIOZero buttons - check for press edge detection
+                        current_state = button_device.is_pressed
+                        prev_state = self.prev_button_states[rune_name]
+                        
+                        # Detect button press (rising edge for is_pressed)
+                        if current_state and not prev_state:
+                            self._handle_rune_press(rune_name)
+                        
+                        self.prev_button_states[rune_name] = current_state
                 
                 time.sleep(0.05)  # 50ms polling interval
                 
