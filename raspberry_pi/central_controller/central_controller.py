@@ -511,5 +511,5 @@ class CentralController:
 
 if __name__ == "__main__":
     # Initialize and run the central controller
-    controller = CentralController("/home/pi/wizards/config")
+    controller = CentralController("/home/pi/Wizards/config")
     controller.run()
