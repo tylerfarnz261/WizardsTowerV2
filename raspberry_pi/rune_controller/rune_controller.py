@@ -33,7 +33,7 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 import paho.mqtt.client as mqtt
 import requests
-import RPi.GPIO as GPIO
+import gpiod
 import busio
 import digitalio
 import board
@@ -83,6 +83,8 @@ class RuneController:
         }
         
         # Initialize hardware
+        self.gpio_chip = None
+        self.gpio_lines = {}  # Store GPIO line objects
         self._init_i2c_and_gpio()
         
         # Initialize MQTT
@@ -113,9 +115,8 @@ class RuneController:
     def _init_i2c_and_gpio(self):
         """Initialize I2C connection and MCP23017 GPIO expander + GPIO pins."""
         try:
-            # Initialize GPIO for Pi pins
-            GPIO.setmode(GPIO.BCM)
-            GPIO.setwarnings(False)
+            # Initialize GPIO chip for Pi 5
+            self.gpio_chip = gpiod.Chip('gpiochip4')  # Pi 5 uses gpiochip4
             
             # Initialize I2C
             self.i2c = busio.I2C(board.SCL, board.SDA)
@@ -147,14 +148,20 @@ class RuneController:
                 light_pin_num = pins['light_pin']
                 
                 # Setup button pin
-                GPIO.setup(button_pin_num, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+                button_line = self.gpio_chip.get_line(button_pin_num)
+                button_line.request(consumer="rune_button", type=gpiod.LINE_REQ_DIR_IN, flags=gpiod.LINE_REQ_FLAG_BIAS_PULL_UP)
                 
                 # Setup light pin
-                GPIO.setup(light_pin_num, GPIO.OUT)
-                GPIO.output(light_pin_num, GPIO.LOW)
+                light_line = self.gpio_chip.get_line(light_pin_num)
+                light_line.request(consumer="rune_light", type=gpiod.LINE_REQ_DIR_OUT)
+                light_line.set_value(0)
                 
-                self.rune_buttons[rune_name] = ('gpio', button_pin_num)
-                self.rune_lights[rune_name] = ('gpio', light_pin_num)
+                # Store line objects
+                self.gpio_lines[f'{rune_name}_button'] = button_line
+                self.gpio_lines[f'{rune_name}_light'] = light_line
+                
+                self.rune_buttons[rune_name] = ('gpio', f'{rune_name}_button')
+                self.rune_lights[rune_name] = ('gpio', f'{rune_name}_light')
             
             # Track previous button states for edge detection
             self.prev_button_states = {name: True for name in self.rune_buttons.keys()}
@@ -553,7 +560,7 @@ class RuneController:
             if pin_type == 'mcp':
                 light_pin.value = False
             else:  # GPIO pin
-                GPIO.output(light_pin, GPIO.LOW)
+                self.gpio_lines[light_pin].set_value(0)
         
         logger.info("All runes deactivated")
     
@@ -568,7 +575,7 @@ class RuneController:
             if pin_type == 'mcp':
                 light_pin.value = False
             else:  # GPIO pin
-                GPIO.output(light_pin, GPIO.LOW)
+                self.gpio_lines[light_pin].set_value(0)
             
         logger.info(f"Rune {rune_name} deactivated")
     
@@ -604,7 +611,7 @@ class RuneController:
                     if pin_type == 'mcp':
                         current_state = button_pin.value
                     else:  # GPIO pin
-                        current_state = GPIO.input(button_pin)
+                        current_state = self.gpio_lines[button_pin].get_value()
                     
                     prev_state = self.prev_button_states[rune_name]
                     
@@ -704,7 +711,7 @@ class RuneController:
                             if pin_type == 'mcp':
                                 light_pin.value = light_on
                             else:  # GPIO pin
-                                GPIO.output(light_pin, GPIO.HIGH if light_on else GPIO.LOW)
+                                self.gpio_lines[light_pin].set_value(1 if light_on else 0)
                 
                 time.sleep(0.1)
                 
@@ -729,7 +736,15 @@ class RuneController:
     def cleanup(self):
         """Cleanup GPIO and connections."""
         try:
-            GPIO.cleanup()
+            # Release GPIO lines
+            for line in self.gpio_lines.values():
+                try:
+                    line.release()
+                except:
+                    pass
+            if self.gpio_chip:
+                self.gpio_chip.close()
+                
             self.mqtt_client.loop_stop()
             self.mqtt_client.disconnect()
             logger.info("Cleanup completed")

@@ -3,6 +3,15 @@
 
 This escape room control system consists of multiple ESP32 devices, two Raspberry Pi controllers, and an MQTT messaging system to create an immersive puzzle experience.
 
+## ⚠️ Raspberry Pi 5 Compatibility
+
+This system is fully compatible with **Raspberry Pi 5** and uses the modern `gpiod` library instead of the deprecated `RPi.GPIO`. The system automatically detects and uses the correct GPIO interface.
+
+**Key Changes for Pi 5:**
+- Uses `gpiod` library for GPIO control
+- GPIO chip: `gpiochip4` (Pi 5 standard)
+- No virtual environment needed - system-wide installation with `--break-system-packages`
+
 ## System Overview
 
 ### Architecture
@@ -25,7 +34,7 @@ Rune Controller → HTTP → Spell Success → MQTT Actions
 ### Raspberry Pi Controllers (x2)
 
 #### Rune Controller Pi
-- Raspberry Pi 4 (recommended) or Pi 3B+
+- Raspberry Pi 5 (recommended) or Pi 4
 - MicroSD card (32GB+, Class 10)
 - 2x MCP23017 16-bit GPIO expanders
 - 12 momentary push buttons (runes)
@@ -34,7 +43,7 @@ Rune Controller → HTTP → Spell Success → MQTT Actions
 - Power supply (5V, 3A)
 
 #### Central Controller Pi  
-- Raspberry Pi 4 (recommended) or Pi 3B+
+- Raspberry Pi 5 (recommended) or Pi 4
 - MicroSD card (32GB+, Class 10) 
 - 9 relay modules (for maglocks)
 - Power supply (5V, 3A)
@@ -71,18 +80,17 @@ sudo apt update && sudo apt upgrade -y
 #### 2. Python Environment Setup
 ```bash
 # Install Python dependencies
-sudo apt install python3-pip python3-venv git -y
+sudo apt install python3-pip git -y
 
 # Clone project (or copy files)
 git clone <your-repo-url> /home/pi/escape_room_controller
 cd /home/pi/escape_room_controller
 
-# Create virtual environment
-python3 -m venv venv
-source venv/bin/activate
+# Install Python packages system-wide for Pi 5 compatibility
+sudo pip3 install --break-system-packages flask flask-cors paho-mqtt requests pyyaml gpiod adafruit-circuitpython-busio adafruit-circuitpython-mcp230xx
 
-# Install Python packages
-pip install -r requirements.txt
+# Note: If you get errors about --break-system-packages, try:
+# pip3 install --user flask flask-cors paho-mqtt requests pyyaml gpiod adafruit-circuitpython-busio adafruit-circuitpython-mcp230xx
 ```
 
 #### 3. I2C and GPIO Configuration (Rune Controller Only)
@@ -91,9 +99,11 @@ pip install -r requirements.txt
 sudo raspi-config
 # Navigate to: Interface Options → I2C → Yes
 
-# Verify I2C is working
+# Verify I2C is working (after connecting MCP23017s)
 sudo i2cdetect -y 1
 # Should show addresses 0x20 and 0x21 when MCP23017s are connected
+
+# Note: GPIO access uses gpiod library for Raspberry Pi 5 compatibility
 ```
 
 #### 4. MQTT Broker Setup (Central Controller Only)
@@ -248,6 +258,49 @@ GND → NeoPixel GND
 mosquitto_sub -h localhost -t escaperoom/+/+
 
 # On another terminal
+mosquitto_pub -h localhost -t escaperoom/test -m "test message"
+```
+
+#### 2. GPIO Functionality (Pi 5)
+```bash
+# Check GPIO chip availability
+ls /dev/gpiochip*
+# Should show: /dev/gpiochip0, /dev/gpiochip1, /dev/gpiochip4
+
+# Test GPIO permissions
+gpiodetect
+# Should list available GPIO chips
+
+# If permission issues:
+sudo usermod -a -G gpio $USER
+# Log out and back in
+```
+
+#### 3. I2C Device Detection
+```bash
+# Check I2C interface
+sudo i2cdetect -y 1
+# Should show MCP23017s at addresses 0x20, 0x21
+```
+
+### Common Issues and Solutions
+
+#### GPIO Permission Errors (Pi 5)
+```bash
+# Error: "Permission denied" or "Cannot determine SOC peripheral base address"
+# Solution 1: Run with sudo (temporary)
+sudo python3 rune_controller.py
+
+# Solution 2: Add user to gpio group (permanent)
+sudo usermod -a -G gpio pi
+sudo reboot
+
+# Solution 3: Check GPIO chip
+ls -la /dev/gpiochip*
+sudo chmod 666 /dev/gpiochip4  # If needed
+```
+
+#### MQTT Connection Issues
 mosquitto_pub -h localhost -t escaperoom/test -m "hello"
 ```
 
