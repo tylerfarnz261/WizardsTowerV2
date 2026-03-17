@@ -26,7 +26,7 @@ const char* ssid = "EscapeRoom_WiFi";
 const char* password = "YourWiFiPassword";
 
 // MQTT settings
-const char* mqtt_server = "192.168.1.100";
+const char* mqtt_server = "192.168.0.194";
 const int mqtt_port = 1883;
 const char* device_id = "wand_cabinet_esp32";
 

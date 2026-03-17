@@ -176,9 +176,9 @@ Install these libraries via Library Manager:
 Update these IPs in `config/system_config.yaml`:
 ```yaml
 network:
-  rune_controller_ip: "192.168.1.101"
-  central_controller_ip: "192.168.1.102" 
-  mqtt_broker_ip: "192.168.1.100"      # Same as one Pi
+  rune_controller_ip: "192.168.0.193"
+  central_controller_ip: "192.168.0.194" 
+  mqtt_broker_ip: "192.168.0.194"      # Same as one Pi
   windows_audio_ip: "192.168.1.150"
 ```
 
@@ -266,11 +266,11 @@ journalctl -u rune-controller -f
 #### 3. Flask Endpoints Test
 ```bash
 # Test Rune Controller
-curl http://192.168.1.101:5001/status
+curl http://192.168.0.193:5001/status
 
 # Test Central Controller  
-curl http://192.168.1.102:5002/status
-curl http://192.168.1.102:5002/maglocks
+curl http://192.168.0.194:5002/status
+curl http://192.168.0.194:5002/maglocks
 ```
 
 #### 4. ESP32 Diagnostics
@@ -311,16 +311,16 @@ curl http://192.168.1.102:5002/maglocks
 Use the Flask endpoints to manually trigger puzzles:
 ```bash
 # Unlock specific maglock
-curl -X POST http://192.168.1.102:5002/maglocks/wand_cabinet/unlock
+curl -X POST http://192.168.0.194:5002/maglocks/wand_cabinet/unlock
 
 # Simulate puzzle solve
-curl -X POST http://192.168.1.102:5002/puzzle/cross/solve
+curl -X POST http://192.168.0.194:5002/puzzle/cross/solve
 
 # Trigger spell success
-curl -X POST http://192.168.1.101:5001/spell_success
+curl -X POST http://192.168.0.193:5001/spell_success
 
 # Reset entire system
-curl -X POST http://192.168.1.102:5002/reset
+curl -X POST http://192.168.0.194:5002/reset
 ```
 
 ## Maintenance and Operation
