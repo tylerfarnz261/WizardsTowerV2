@@ -250,8 +250,6 @@ class CentralController:
             elif topic == self.config['esp32']['cauldron']:
                 if payload.lower() == 'true':
                     self.game_state['puzzle_states']['cauldron'] = True
-                    # Forward to rune controller to unlock dream runes
-                    self._publish_mqtt(self.config['esp32']['cauldron'], 'true')
                     logger.info("Cauldron solved - forwarded dream rune unlock to rune controller")
             
             # Handle torch states for fireplace mantle logic

@@ -34,7 +34,7 @@ const int mqtt_port = 1883;
 const char* device_id = "cauldron_esp32";
 
 // MQTT topics
-const char* topic_cauldron_solved = "escaperoom/esp32/cauldron";
+const char* topic_cauldron_solved = "escaperoom/esp32/cauldron/pressed";
 
 // Hardware pins
 const int SENSOR_PIN = 2;    // Cauldron sensor input pin
