@@ -315,6 +315,7 @@ class RuneController:
             if rune_name.startswith('fire_torch_'):
                 torch_num = rune_name.split('_')[-1]
                 torch_topic = self.config['torches'][f'torch_{torch_num}']
+                logger.info(f"Publishing torch control: topic={torch_topic}, payload=true")  # Debug logging
                 self._publish_mqtt(torch_topic, 'true')  # Tell central controller to toggle torch
                 actions.append(f"Toggled torch {torch_num} light (sent to central controller)")
                 

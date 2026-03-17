@@ -208,7 +208,7 @@ class CentralController:
         try:
             topic = msg.topic
             payload = msg.payload.decode()
-            logger.debug(f"Received MQTT message: {topic} - {payload}")
+            logger.info(f"Received MQTT: {topic} = {payload}")  # Enhanced logging
             
             # Handle ESP32 inputs
             if topic == self.config['esp32']['wand_cabinet']:
@@ -248,10 +248,18 @@ class CentralController:
             
             # Handle torch states for fireplace mantle logic
             elif topic.startswith('escaperoom/torches/torch'):
-                torch_num = topic.split('torch')[1]
-                if payload.lower() == 'true':
-                    self._toggle_torch_relay(int(torch_num))
-                    self._check_torch_puzzle_solution()
+                try:
+                    # More robust parsing: extract number from end of topic
+                    # Expected format: "escaperoom/torches/torch1", "escaperoom/torches/torch2", etc.
+                    if topic.endswith(('1', '2', '3', '4', '5')):
+                        torch_num = int(topic[-1])  # Get last character as torch number
+                        if payload.lower() == 'true':
+                            self._toggle_torch_relay(torch_num)
+                            self._check_torch_puzzle_solution()
+                    else:
+                        logger.warning(f"Invalid torch topic format: {topic}")
+                except (ValueError, IndexError) as e:
+                    logger.error(f"Error parsing torch topic '{topic}': {e}")
             
             # Handle rune-triggered maglocks
             elif topic == self.config['runes']['fire_fireplace']:
