@@ -3,8 +3,10 @@
   =======================================
   
   This ESP32 controls the cauldron input and sends serial commands
-  to a sprite player. When triggered, it also marks the cauldron
-  as solved, which unlocks the dream runes.
+  to a sprite player when the cauldron is solved. When triggered by
+  grounding the input, it plays a video sequence and notifies the
+  central controller to unlock the dream runes. Can only be solved
+  once until system reset.
   
   Hardware:
   - ESP32 development board
@@ -13,7 +15,6 @@
   - Pull-up resistor (if not using internal pull-up)
   
   MQTT Topics:
-  - Publishes: escaperoom/esp32/cauldron/pressed
   - Publishes: escaperoom/gamestate/cauldron_solved
   
   Author: Wizards Control System
@@ -33,8 +34,7 @@ const int mqtt_port = 1883;
 const char* device_id = "cauldron_esp32";
 
 // MQTT topics
-const char* topic_cauldron_pressed = "escaperoom/esp32/cauldron/pressed";
-const char* topic_cauldron_solved = "escaperoom/gamestate/cauldron_solved";
+const char* topic_cauldron_solved = "escaperoom/esp32/cauldron";
 
 // Hardware pins
 const int SENSOR_PIN = 2;    // Cauldron sensor input pin
@@ -190,10 +190,10 @@ void process_sensor_input() {
     if (reading != current_sensor_state) {
       current_sensor_state = reading;
       
-      // Check for sensor activation (LOW = triggered with pull-up)
+      // Check for sensor activation (input grounded = cauldron solved)
       if (current_sensor_state == LOW && !cauldron_was_triggered) {
         cauldron_triggered();
-        cauldron_was_triggered = true;  // Only trigger once
+        cauldron_was_triggered = true;  // Only solve once until reset
       }
     }
   }
@@ -202,19 +202,15 @@ void process_sensor_input() {
 }
 
 void cauldron_triggered() {
-  Serial.println("=== CAULDRON TRIGGERED! ===");
+  Serial.println("=== CAULDRON SOLVED! ===");
   
-  // Send command to sprite player
+  // Send command to sprite player to trigger video
   send_sprite_command(SPRITE_COMMAND_CAULDRON);
   
   if (mqtt_client.connected()) {
-    // Publish cauldron pressed event
-    mqtt_client.publish(topic_cauldron_pressed, "true");
-    Serial.println("Published: Cauldron pressed");
-    
-    // Publish cauldron solved event (unlocks dream runes)
+    // Publish cauldron solved event (tells central controller to unlock dream runes)
     mqtt_client.publish(topic_cauldron_solved, "true");
-    Serial.println("Published: Cauldron solved - dream runes unlocked!");
+    Serial.println("Published: Cauldron solved - dream runes will be unlocked!");
     
     // Flash LED rapidly to indicate success
     for (int i = 0; i < 10; i++) {
@@ -229,8 +225,10 @@ void cauldron_triggered() {
     delay(3000);
     digitalWrite(LED_BUILTIN, LOW);
     
+    Serial.println("Cauldron permanently solved until system reset");
+    
   } else {
-    Serial.println("MQTT not connected - messages not sent!");
+    Serial.println("MQTT not connected - message not sent!");
   }
 }
 

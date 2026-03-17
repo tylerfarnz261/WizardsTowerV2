@@ -174,12 +174,12 @@ class CentralController:
                 self.config['esp32']['wand_cabinet'],
                 self.config['esp32']['cross'],
                 self.config['esp32']['cheese'],
-                self.config['esp32']['cauldron'],
                 self.config['esp32']['dials'],
                 self.config['esp32']['staircase'],
                 self.config['esp32']['crystals_first_four'],
                 self.config['esp32']['crystals_all_placed'],
                 self.config['esp32']['watcher'],
+                self.config['esp32']['cauldron'],  
                 
                 # Torch control topics
                 self.config['torches']['torch_1'],
@@ -245,6 +245,14 @@ class CentralController:
                 if payload.lower() == 'true':
                     self._handle_all_crystals_placed()
                     self.game_state['crystal_states']['all_complete'] = True
+            
+            # Handle cauldron being solved (forward to rune controller to unlock dream runes)
+            elif topic == self.config['esp32']['cauldron']:
+                if payload.lower() == 'true':
+                    self.game_state['puzzle_states']['cauldron'] = True
+                    # Forward to rune controller to unlock dream runes
+                    self._publish_mqtt(self.config['esp32']['cauldron'], 'true')
+                    logger.info("Cauldron solved - forwarded dream rune unlock to rune controller")
             
             # Handle torch states for fireplace mantle logic
             elif topic.startswith('escaperoom/torches/torch'):

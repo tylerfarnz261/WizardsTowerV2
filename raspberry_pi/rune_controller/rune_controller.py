@@ -195,7 +195,7 @@ class RuneController:
             topics = [
                 self.config['runes']['enable'],
                 self.config['runes']['torch_runes_disable'],  # Listen for torch puzzle solved
-                self.config['game_state']['cauldron_solved'],
+                self.config['esp32']['cauldron'],  # Listen for cauldron solved to unlock dream runes
                 self.config['esp32']['wand_cabinet'],
                 self.config['esp32']['crystals_first_four']
             ]
