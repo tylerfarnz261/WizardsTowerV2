@@ -97,6 +97,14 @@ central_controller:
     relay_3: 24  # General purpose relay
     relay_4: 25  # General purpose relay
 
+# MQTT Configuration  
+mqtt:
+  broker_host: "192.168.0.194"  # Central Controller Pi (hosts MQTT broker)
+  broker_port: 1883
+  username: ""  # Set if authentication required
+  password: ""  # Set if authentication required  
+  keepalive: 60
+
 # ESP32 Configuration Templates
 esp32_config:
   # WiFi settings (same for all ESP32s)
