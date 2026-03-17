@@ -194,6 +194,7 @@ class RuneController:
             # Subscribe to necessary topics
             topics = [
                 self.config['runes']['enable'],
+                self.config['runes']['torch_runes_disable'],  # Listen for torch puzzle solved
                 self.config['game_state']['cauldron_solved'],
                 self.config['esp32']['wand_cabinet'],
                 self.config['esp32']['crystals_first_four']
@@ -216,6 +217,11 @@ class RuneController:
                 logger.info(f"Runes enabled: {self.runes_enabled}")
                 if not self.runes_enabled:
                     self._deactivate_all_runes()
+            
+            elif topic == self.config['runes']['torch_runes_disable']:
+                if payload.lower() == 'true':
+                    self.game_state['torch_runes_disabled'] = True
+                    logger.info("🔥 Torch runes disabled - puzzle solved by central controller!")
             
             elif topic == self.config['game_state']['cauldron_solved']:
                 self.game_state['cauldron_solved'] = payload.lower() == 'true'
@@ -251,13 +257,19 @@ class RuneController:
                 # Process the spell success for the active rune
                 result = self._process_spell_success(self.active_rune)
                 
-                # Deactivate the current rune
-                self._deactivate_rune(self.active_rune)
+                # Check if rune should stay active (torch runes stay active)
+                if isinstance(result, dict) and result.get('rune_stays_active', False):
+                    logger.info(f"Rune {self.active_rune} stays active after spell success")
+                    # Don't deactivate - keep the rune active and pulsing
+                else:
+                    # Deactivate the current rune (normal behavior)
+                    self._deactivate_rune(self.active_rune)
                 
                 return jsonify({
                     'status': 'success', 
-                    'rune': self.active_rune,
-                    'actions': result
+                    'rune': result.get('rune', self.active_rune),
+                    'actions': result.get('actions', []),
+                    'rune_stays_active': result.get('rune_stays_active', False)
                 }), 200
                 
             except Exception as e:
@@ -307,12 +319,14 @@ class RuneController:
             if rune_name.startswith('fire_torch_'):
                 torch_num = rune_name.split('_')[-1]
                 torch_topic = self.config['torches'][f'torch_{torch_num}']
-                self._publish_mqtt(torch_topic, 'true')
-                self.game_state['torch_states'][f'torch_{torch_num}'] = True
-                actions.append(f"Activated torch {torch_num}")
+                self._publish_mqtt(torch_topic, 'true')  # Tell central controller to toggle torch
+                actions.append(f"Toggled torch {torch_num} light (sent to central controller)")
                 
-                # Check if fireplace mantle should unlock
-                self._check_fireplace_mantle_unlock()
+                # DO NOT deactivate the rune - keep it active and lit
+                # The central controller will disable these runes when puzzle is solved
+                logger.info(f"Torch {torch_num} rune stays active - waiting for puzzle completion")
+                
+                return {'rune': rune_name, 'actions': actions, 'rune_stays_active': True}
             
             # Fire rune for fireplace door
             elif rune_name == 'fire_fireplace':
@@ -491,57 +505,6 @@ class RuneController:
                 
         except Exception as e:
             logger.error(f"Failed to trigger audio event: {e}")
-    
-    def _check_fireplace_mantle_unlock(self):
-        """Check if fireplace mantle should unlock based on torch states."""
-        solution = self.config['game_logic']['torch_solution']
-        current_state = self.game_state['torch_states']
-        
-        # Check if current state matches solution
-        matches_solution = all(
-            current_state.get(f'torch_{i}', False) == solution[f'torch_{i}']
-            for i in range(1, 6)
-        )
-        
-        if matches_solution and not self.game_state['torch_runes_disabled']:
-            # Play sound effect first, then turn on all torches, then deactivate runes
-            self._handle_torch_puzzle_completion()
-            
-            # Unlock fireplace mantle
-            self._publish_mqtt(self.config['maglocks']['fireplace_mantle'], 'unlock')
-            logger.info("Fireplace mantle unlocked - torch puzzle solved!")
-            
-            # Deactivate all torch runes permanently
-            self.game_state['torch_runes_disabled'] = True
-            logger.info("All torch runes disabled permanently - torch puzzle solved!")
-    
-    def _handle_torch_puzzle_completion(self):
-        """Handle torch puzzle completion: play sound effect then turn on all torches."""
-        try:
-            # Send HTTP request to Windows audio system for torch puzzle completion sound
-            audio_url = f"http://{self.config['audio']['windows_audio']['ip']}/torch_puzzle_complete"
-            
-            response = requests.get(audio_url, timeout=5)
-            if response.status_code == 200:
-                logger.info("Torch puzzle completion sound effect triggered")
-            else:
-                logger.warning(f"Failed to trigger torch completion audio: {response.status_code}")
-                
-            # Wait a moment for the sound effect, then turn on all torches
-            time.sleep(2)  # Adjust timing as needed
-            
-            # Turn on all torches
-            for i in range(1, 6):
-                torch_topic = self.config['torches'][f'torch_{i}']
-                self._publish_mqtt(torch_topic, 'true')
-                logger.info(f"Turned on torch {i} for puzzle completion")
-            
-        except Exception as e:
-            logger.error(f"Error in torch puzzle completion handling: {e}")
-            # Still turn on torches even if audio fails
-            for i in range(1, 6):
-                torch_topic = self.config['torches'][f'torch_{i}']
-                self._publish_mqtt(torch_topic, 'true')
     
     def _deactivate_all_runes(self):
         """Deactivate all runes and turn off all lights."""

@@ -33,6 +33,7 @@ runes:
   
   # Rune system control
   enable: "escaperoom/runes/enable"  # Enable/disable rune system
+  torch_runes_disable: "escaperoom/runes/torch_runes_disable"  # Disable torch runes when puzzle solved
   spell_success: "escaperoom/runes/spell_success"
 
 # ESP32 Input Topics

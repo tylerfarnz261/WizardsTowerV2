@@ -90,12 +90,20 @@ central_controller:
     treasure_chest: 9
     staircase_compartment: 11
   
+  # GPIO pins for torch relay control (turn torch lights ON/OFF)
+  torch_relays:
+    torch_1: 14  # GPIO 14 - Torch 1 light relay
+    torch_2: 15  # GPIO 15 - Torch 2 light relay
+    torch_3: 18  # GPIO 18 - Torch 3 light relay
+    torch_4: 23  # GPIO 23 - Torch 4 light relay
+    torch_5: 24  # GPIO 24 - Torch 5 light relay
+  
   # GPIO pins for other outputs
   other_outputs:
-    relay_1: 18  # General purpose relay
-    relay_2: 23  # General purpose relay
-    relay_3: 24  # General purpose relay
-    relay_4: 25  # General purpose relay
+    relay_1: 25  # General purpose relay
+    relay_2: 8   # General purpose relay
+    relay_3: 7   # General purpose relay
+    relay_4: 12  # General purpose relay
 
 # ESP32 Configuration Templates
 esp32_config:

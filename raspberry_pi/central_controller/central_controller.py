@@ -58,7 +58,8 @@ class CentralController:
         self.game_state = {
             'active': True,
             'start_time': datetime.now(),
-            'torch_states': {f'torch_{i}': False for i in range(1, 6)},
+            'torch_states': {f'torch_{i}': True for i in range(1, 6)},  # Start with torches ON (lights on)
+            'torch_puzzle_solved': False,
             'crystal_states': {
                 'red_placed': False,
                 'blue_placed': False,  
@@ -109,7 +110,7 @@ class CentralController:
         return config
     
     def _init_gpio(self):
-        """Initialize GPIO pins for maglock control."""
+        """Initialize GPIO pins for maglock and torch relay control."""
         try:
             # Setup maglock pins using GPIOZero LEDs (for relay control)
             self.maglock_devices = {}
@@ -117,6 +118,15 @@ class CentralController:
                 led_device = LED(pin_num)
                 led_device.off()  # Start with maglocks engaged (OFF = LOW = locked)
                 self.maglock_devices[maglock_name] = led_device
+            
+            # Setup torch relay pins (GPIO pins for torch light control)
+            self.torch_relays = {}
+            torch_pins = self.config['central_controller']['torch_relays']
+            for i in range(1, 6):
+                pin_num = torch_pins[f'torch_{i}']
+                led_device = LED(pin_num)
+                led_device.on()  # Start with torch lights ON (HIGH = lights on)
+                self.torch_relays[f'torch_{i}'] = led_device
             
             # Setup other output pins
             self.other_devices = {}
@@ -126,6 +136,8 @@ class CentralController:
                 self.other_devices[output_name] = led_device
             
             logger.info("GPIO initialized successfully")
+            logger.info(f"Initialized {len(self.maglock_devices)} maglocks")
+            logger.info(f"Initialized {len(self.torch_relays)} torch relays")
             
         except Exception as e:
             logger.error(f"Failed to initialize GPIO: {e}")
@@ -237,8 +249,9 @@ class CentralController:
             # Handle torch states for fireplace mantle logic
             elif topic.startswith('escaperoom/torches/torch'):
                 torch_num = topic.split('torch')[1]
-                self.game_state['torch_states'][f'torch_{torch_num}'] = payload.lower() == 'true'
-                self._check_fireplace_mantle_unlock()
+                if payload.lower() == 'true':
+                    self._toggle_torch_relay(int(torch_num))
+                    self._check_torch_puzzle_solution()
             
             # Handle rune-triggered maglocks
             elif topic == self.config['runes']['fire_fireplace']:
@@ -294,20 +307,55 @@ class CentralController:
         except Exception as e:
             logger.error(f"Failed to lock maglock {maglock_name}: {e}")
     
-    def _check_fireplace_mantle_unlock(self):
-        """Check if fireplace mantle should unlock based on torch pattern."""
-        solution = self.config['game_logic']['torch_solution']
-        current_state = self.game_state['torch_states']
-        
-        # Check if current state matches solution (1&4 ON, 2&3&5 OFF)
-        matches_solution = all(
-            current_state.get(f'torch_{i}', False) == solution[f'torch_{i}']
-            for i in range(1, 6)
-        )
-        
-        if matches_solution:
-            self._unlock_maglock('fireplace_mantle')
-            logger.info("Fireplace mantle unlocked - torch puzzle solved correctly!")
+    def _toggle_torch_relay(self, torch_num: int):
+        """Toggle a torch relay (turn light OFF if ON, or ON if OFF)."""
+        try:
+            torch_key = f'torch_{torch_num}'
+            if torch_key in self.torch_relays:
+                relay = self.torch_relays[torch_key]
+                
+                # Toggle the relay state
+                if relay.is_lit:  # Currently ON
+                    relay.off()  # Turn torch light OFF
+                    self.game_state['torch_states'][torch_key] = False
+                    logger.info(f"Torch {torch_num} light turned OFF")
+                else:  # Currently OFF
+                    relay.on()  # Turn torch light ON
+                    self.game_state['torch_states'][torch_key] = True
+                    logger.info(f"Torch {torch_num} light turned ON")
+                
+        except Exception as e:
+            logger.error(f"Failed to toggle torch {torch_num} relay: {e}")
+    
+    def _check_torch_puzzle_solution(self):
+        """Check if torch puzzle is solved (2,3,5 OFF and 1,4 ON) and disable fire runes."""
+        try:
+            if self.game_state['torch_puzzle_solved']:
+                return  # Already solved
+            
+            solution = self.config['game_logic']['torch_solution']
+            current_state = self.game_state['torch_states']
+            
+            # Check if current state matches solution
+            matches_solution = all(
+                current_state.get(f'torch_{i}', False) == solution[f'torch_{i}']
+                for i in range(1, 6)
+            )
+            
+            if matches_solution:
+                logger.info("🔥 TORCH PUZZLE SOLVED! Unlocking fireplace mantle and disabling torch runes")
+                
+                # Mark puzzle as solved
+                self.game_state['torch_puzzle_solved'] = True
+                
+                # Unlock fireplace mantle
+                self._unlock_maglock('fireplace_mantle')
+                
+                # Tell rune controller to disable torch runes
+                self._publish_mqtt(self.config['runes']['torch_runes_disable'], 'true')
+                
+        except Exception as e:
+            logger.error(f"Error checking torch puzzle solution: {e}")
     
     def _handle_all_crystals_placed(self):
         """Handle the final crystal placement - trigger win sequence."""
@@ -336,7 +384,8 @@ class CentralController:
             self.game_state = {
                 'active': True,
                 'start_time': datetime.now(),
-                'torch_states': {f'torch_{i}': False for i in range(1, 6)},
+                'torch_states': {f'torch_{i}': True for i in range(1, 6)},  # Reset torches to ON
+                'torch_puzzle_solved': False,
                 'crystal_states': {
                     'red_placed': False,
                     'blue_placed': False,
@@ -347,8 +396,15 @@ class CentralController:
                     'all_complete': False
                 },
                 'puzzle_states': {name: False for name in self.game_state['puzzle_states'].keys()},
-                'maglock_states': {name: False for name in self.maglock_pins.keys()}
+                'maglock_states': {name: False for name in self.maglock_devices.keys()}
             }
+            
+            # Reset torch relays to ON (lights on)
+            for torch_key, relay in self.torch_relays.items():
+                relay.on()  # Turn torch lights ON
+                
+            # Publish reset signal to rune controller
+            self._publish_mqtt(self.config['system']['reset_game'], 'true')
             
             # Publish reset signal to all systems
             self._publish_mqtt(self.config['system']['game_state'], 'RESET')
