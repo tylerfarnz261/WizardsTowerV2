@@ -223,7 +223,7 @@ class RuneController:
                     self.game_state['torch_runes_disabled'] = True
                     logger.info("🔥 Torch runes disabled - puzzle solved by central controller!")
             
-            elif topic == self.config['game_state']['cauldron_solved']:
+            elif topic == self.config['esp32']['cauldron']:
                 self.game_state['cauldron_solved'] = payload.lower() == 'true'
                 if self.game_state['cauldron_solved']:
                     self.game_state['dream_runes_unlocked'] = True
