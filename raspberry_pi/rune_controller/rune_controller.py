@@ -634,9 +634,9 @@ class RuneController:
     def _handle_rune_press(self, rune_name: str):
         """Handle rune button press."""
         try:
-            # Check if another rune is already active
-            if self.active_rune and self.active_rune != rune_name:
-                logger.info(f"Rune {rune_name} press ignored - {self.active_rune} is active")
+            # Check if any rune is already active (including this same rune)
+            if self.active_rune:
+                logger.info(f"Rune {rune_name} press ignored - {self.active_rune} is currently active")
                 return
             
             # Check if owl rune is permanently disabled
