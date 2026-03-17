@@ -3,9 +3,9 @@
 
 # Network Configuration
 network:
-  rune_controller_ip: "192.168.1.101"
-  central_controller_ip: "192.168.1.102"
-  mqtt_broker_ip: "192.168.1.100"  # Same as one of the Pi IPs
+  rune_controller_ip: "192.168.0.193"
+  central_controller_ip: "192.168.0.194"
+  mqtt_broker_ip: "192.168.0.194"  # Same as one of the Pi IPs
   windows_audio_ip: "192.168.1.150"
   windows_audio_port: 15000
 
