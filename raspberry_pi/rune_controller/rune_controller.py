@@ -112,11 +112,27 @@ class RuneController:
             raise
         return config
     
+    def _detect_gpio_chip(self):
+        """Detect the correct GPIO chip for this Pi model."""
+        # Common GPIO chip names to try
+        chip_candidates = ['gpiochip4', 'gpiochip0', 'gpiochip1']
+        
+        for chip_name in chip_candidates:
+            try:
+                chip = gpiod.Chip(chip_name)
+                logger.info(f"Successfully detected GPIO chip: {chip_name}")
+                return chip
+            except FileNotFoundError:
+                logger.debug(f"GPIO chip {chip_name} not found, trying next...")
+                continue
+        
+        raise RuntimeError("No suitable GPIO chip found. Tried: " + ", ".join(chip_candidates))
+
     def _init_i2c_and_gpio(self):
         """Initialize I2C connection and MCP23017 GPIO expander + GPIO pins."""
         try:
-            # Initialize GPIO chip for Pi 5
-            self.gpio_chip = gpiod.Chip('gpiochip4')  # Pi 5 uses gpiochip4
+            # Initialize GPIO chip with automatic detection
+            self.gpio_chip = self._detect_gpio_chip()
             
             # Initialize I2C
             self.i2c = busio.I2C(board.SCL, board.SDA)
