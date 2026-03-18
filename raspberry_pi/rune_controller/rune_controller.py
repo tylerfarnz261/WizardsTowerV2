@@ -487,7 +487,31 @@ class RuneController:
         """Request audio play from Windows event listener."""
         try:
             print('hit')
-            windows_config = self.config['audio']['windows_audio']
+            # Debug: Print config structure to help troubleshoot
+            print(f"Config keys: {list(self.config.keys()) if self.config else 'None'}")
+            if 'audio' in self.config:
+                print(f"Audio config keys: {list(self.config['audio'].keys())}")
+            else:
+                print("No 'audio' key found in config")
+                # Fallback to network config values
+                windows_config = {
+                    'ip': self.config['network']['windows_audio_ip'],
+                    'port': self.config['network']['windows_audio_port'],
+                    'timeout': 10
+                }
+                print(f"Using fallback config: {windows_config}")
+            
+            if 'audio' in self.config and 'windows_audio' in self.config['audio']:
+                windows_config = self.config['audio']['windows_audio']
+            else:
+                # Fallback to network config values
+                windows_config = {
+                    'ip': self.config['network']['windows_audio_ip'],
+                    'port': self.config['network']['windows_audio_port'],
+                    'timeout': 10
+                }
+                logger.warning("Using fallback audio config from network section")
+            
             # Simple GET request to trigger your Windows event listener
             url = f"http://{windows_config['ip']}:{windows_config['port']}/{event_name}"
             print(url)
@@ -504,6 +528,9 @@ class RuneController:
                 
         except Exception as e:
             logger.error(f"Failed to trigger audio event: {e}")
+            print(f"Full exception details: {str(e)}")
+            import traceback
+            traceback.print_exc()
     
     def _deactivate_all_runes(self):
         """Deactivate all runes and turn off all lights."""
@@ -735,7 +762,15 @@ class RuneController:
 
 if __name__ == "__main__":
     # Initialize and run the rune controller
-    controller = RuneController("/home/pi/Wizards/config")
+    # Auto-detect config path based on environment
+    import os
+    if os.name == 'nt':  # Windows
+        config_path = "c:/Users/tyler/WizardsClaude/escape_room_controller/config"
+    else:  # Linux/Raspberry Pi
+        config_path = "/home/pi/Wizards/config"
+    
+    print(f"Using config path: {config_path}")
+    controller = RuneController(config_path)
     try:
         controller.run()
     except KeyboardInterrupt:
