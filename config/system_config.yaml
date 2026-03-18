@@ -161,7 +161,7 @@ audio:
   # Windows machine settings
   windows_audio:
     ip: "192.168.0.156"
-    port: 80    # Standard HTTP port (or whatever your event listener uses)
+    port: 15000    # Standard HTTP port (or whatever your event listener uses)
     timeout: 10  # seconds
   
   # Audio event mappings (sent as GET requests to Windows machine)
