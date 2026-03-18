@@ -222,7 +222,6 @@ class CentralController:
             elif topic == self.config['esp32']['cross']:
                 if payload.lower() == 'true':
                     self._request_audio_play('cross')
-                    #TODO ADJUST SLEEP
                     time.sleep(3)  # Wait for audio to finish
                     self._unlock_maglock('purple_crystal_compartment')
                     self.game_state['puzzle_states']['cross'] = True
