@@ -374,7 +374,8 @@ class CentralController:
             
             if matches_solution:
                 logger.info("🔥 TORCH PUZZLE SOLVED! Unlocking fireplace mantle and disabling torch runes")
-                
+                self._request_audio_play('torches_solved')
+                time.sleep(6)
                 # Mark puzzle as solved
                 self.game_state['torch_puzzle_solved'] = True
                 
