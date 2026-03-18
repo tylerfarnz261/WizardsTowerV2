@@ -6,7 +6,7 @@ network:
   rune_controller_ip: "192.168.0.193"
   central_controller_ip: "192.168.0.194"
   mqtt_broker_ip: "192.168.0.194"  # Same as one of the Pi IPs
-  windows_audio_ip: "192.168.1.150"
+  windows_audio_ip: "192.168.0.156"
   windows_audio_port: 15000
 
 # Flask Server Configuration
@@ -160,7 +160,7 @@ esp32_config:
 audio:
   # Windows machine settings
   windows_audio:
-    ip: "192.168.1.150"
+    ip: "192.168.0.156"
     port: 80    # Standard HTTP port (or whatever your event listener uses)
     timeout: 10  # seconds
   
