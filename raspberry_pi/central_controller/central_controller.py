@@ -214,31 +214,43 @@ class CentralController:
             # Handle ESP32 inputs
             if topic == self.config['esp32']['wand_cabinet']:
                 if payload.lower() == 'true':
+                    self._request_audio_play('wand_cabinet')
+                    time.sleep(3.8)  # Wait for audio to finish
                     self._unlock_maglock('wand_cabinet')
                     self.game_state['puzzle_states']['wand_cabinet'] = True
             
             elif topic == self.config['esp32']['cross']:
                 if payload.lower() == 'true':
+                    self._request_audio_play('cross')
+                    #TODO ADJUST SLEEP
+                    time.sleep(3)  # Wait for audio to finish
                     self._unlock_maglock('purple_crystal_compartment')
                     self.game_state['puzzle_states']['cross'] = True
             
             elif topic == self.config['esp32']['cheese']:
                 if payload.lower() == 'true':
+                    self._request_audio_play('cheese')
+                    time.sleep(10.9)
                     self._unlock_maglock('rat_trap_door')
                     self.game_state['puzzle_states']['cheese'] = True
             
             elif topic == self.config['esp32']['dials']:
                 if payload.lower() == 'true':
+                    self._request_audio_play('dials')
                     self._unlock_maglock('treasure_chest')
                     self.game_state['puzzle_states']['dials'] = True
             
             elif topic == self.config['esp32']['staircase']:
                 if payload.lower() == 'true':
+                    self._request_audio_play('staircase')
+                    time.sleep(3.7)
                     self._unlock_maglock('staircase_compartment')
                     self.game_state['puzzle_states']['staircase'] = True
             
             elif topic == self.config['esp32']['crystals_first_four']:
                 if payload.lower() == 'true':
+                    self._request_audio_play('four_crystals')
+                    time.sleep(12.5)
                     self._unlock_maglock('paradox_compartment')
                     self.game_state['crystal_states']['first_four_complete'] = True
             
@@ -250,6 +262,7 @@ class CentralController:
             # Handle cauldron being solved (forward to rune controller to unlock dream runes)
             elif topic == self.config['esp32']['cauldron']:
                 if payload.lower() == 'true':
+                    self._request_audio_play('cauldron')
                     self.game_state['puzzle_states']['cauldron'] = True
                     logger.info("Cauldron solved - forwarded dream rune unlock to rune controller")
             
