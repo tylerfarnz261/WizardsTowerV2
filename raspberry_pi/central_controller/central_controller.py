@@ -337,7 +337,7 @@ class CentralController:
                     logger.info(f"Torch {torch_num} light turned OFF")
                 else:  # Currently OFF
                     relay.on()  # Turn torch light ON
-                    self._request_audio_play('torch_off')   #Audio cue
+                    self._request_audio_play('torch_on')   #Audio cue
                     self.game_state['torch_states'][torch_key] = True
                     logger.info(f"Torch {torch_num} light turned ON")
                 
