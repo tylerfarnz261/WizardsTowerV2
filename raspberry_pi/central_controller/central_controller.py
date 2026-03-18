@@ -33,6 +33,7 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 import paho.mqtt.client as mqtt
 from gpiozero import LED
+import requests
 
 # Configure logging
 logging.basicConfig(
@@ -331,10 +332,12 @@ class CentralController:
                 # Toggle the relay state
                 if relay.is_lit:  # Currently ON
                     relay.off()  # Turn torch light OFF
+                    self._request_audio_play('torch_off')      #Audio cue
                     self.game_state['torch_states'][torch_key] = False
                     logger.info(f"Torch {torch_num} light turned OFF")
                 else:  # Currently OFF
                     relay.on()  # Turn torch light ON
+                    self._request_audio_play('torch_off')   #Audio cue
                     self.game_state['torch_states'][torch_key] = True
                     logger.info(f"Torch {torch_num} light turned ON")
                 
@@ -447,6 +450,55 @@ class CentralController:
             logger.debug(f"Published MQTT: {topic} - {payload}")
         except Exception as e:
             logger.error(f"Failed to publish MQTT message: {e}")
+    
+    def _request_audio_play(self, event_name: str):
+        """Request audio play from Windows event listener."""
+        try:
+            print('hit')
+            # Debug: Print config structure to help troubleshoot
+            print(f"Config keys: {list(self.config.keys()) if self.config else 'None'}")
+            if 'audio' in self.config:
+                print(f"Audio config keys: {list(self.config['audio'].keys())}")
+            else:
+                print("No 'audio' key found in config")
+                # Fallback to network config values
+                windows_config = {
+                    'ip': self.config['network']['windows_audio_ip'],
+                    'port': self.config['network']['windows_audio_port'],
+                    'timeout': 10
+                }
+                print(f"Using fallback config: {windows_config}")
+            
+            if 'audio' in self.config and 'windows_audio' in self.config['audio']:
+                windows_config = self.config['audio']['windows_audio']
+            else:
+                # Fallback to network config values
+                windows_config = {
+                    'ip': self.config['network']['windows_audio_ip'],
+                    'port': self.config['network']['windows_audio_port'],
+                    'timeout': 10
+                }
+                logger.warning("Using fallback audio config from network section")
+            
+            # Simple GET request to trigger your Windows event listener
+            url = f"http://{windows_config['ip']}:{windows_config['port']}/{event_name}"
+            print(url)
+            
+            response = requests.get(
+                url, 
+                timeout=windows_config['timeout']
+            )
+            
+            if response.status_code == 200:
+                logger.info(f"Successfully triggered audio event: {event_name}")
+            else:
+                logger.warning(f"Audio event request failed with status {response.status_code}")
+                
+        except Exception as e:
+            logger.error(f"Failed to trigger audio event: {e}")
+            print(f"Full exception details: {str(e)}")
+            import traceback
+            traceback.print_exc()
     
     def _init_flask_routes(self):
         """Initialize Flask HTTP routes for game control."""
