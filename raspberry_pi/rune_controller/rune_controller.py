@@ -655,11 +655,11 @@ class RuneController:
         """Monitor rune buttons for presses."""
         while True:
             try:
-                if not self.runes_enabled:
-                    time.sleep(0.1)
-                    continue
-                
                 for rune_name, (pin_type, button_device) in self.rune_buttons.items():
+                    # Always monitor shadow rune (for realm toggling), skip others if runes disabled
+                    if not self.runes_enabled and rune_name != 'shadow_realm':
+                        continue
+                    
                     if pin_type == 'mcp':
                         # MCP23017 buttons - use edge detection
                         current_state = button_device.value
