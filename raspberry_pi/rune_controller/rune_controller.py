@@ -489,6 +489,7 @@ class RuneController:
             windows_config = self.config['audio']['windows_audio']
             # Simple GET request to trigger your Windows event listener
             url = f"http://{windows_config['ip']}:{windows_config['port']}/{event_name}"
+            print(url)
             
             response = requests.get(
                 url, 
