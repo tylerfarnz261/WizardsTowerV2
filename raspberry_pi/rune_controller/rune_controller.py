@@ -446,15 +446,17 @@ class RuneController:
         if count == 0:
             return 'owl_discovery_1'
         elif count == 1:
-            return self.config['audio']['audio_events']['owl_sequence_2'] 
+            return 'owl_discovery_2'
         elif count == 2:
-            return self.config['audio']['audio_events']['owl_sequence_3']
+            return 'owl_discovery_3'
+        elif count == 3:
+            return 'owl_discovery_4'
         else:
             # After first 3, randomly pick from the random pool
             random_events = [
-                self.config['audio']['audio_events']['owl_random_1'],
-                self.config['audio']['audio_events']['owl_random_2'],
-                self.config['audio']['audio_events']['owl_random_3']
+                'owl_knowledge_1',
+                'owl_knowledge_2',
+                'owl_knowledge_3',
             ]
             return random.choice(random_events)
     
