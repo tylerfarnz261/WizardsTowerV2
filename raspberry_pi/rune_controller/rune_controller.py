@@ -364,6 +364,7 @@ class RuneController:
                 if self.game_state['mirror_runes_unlocked']:
                     mirror_num = rune_name.split('_')[1]
                     backlight_topic = self.config['lighting'][f'mirror_backlight_{mirror_num}']
+                    self._request_audio_play('mirror')
                     self._publish_mqtt(backlight_topic, 'true')
                     actions.append(f"Activated mirror {mirror_num} backlight")
                     
