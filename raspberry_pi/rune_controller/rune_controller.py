@@ -233,6 +233,7 @@ class RuneController:
             
             elif topic == self.config['esp32']['wand_cabinet']:
                 if payload.lower() == 'true':
+                    time.sleep(40)
                     self.runes_enabled = True
                     logger.info("Wand cabinet opened - runes enabled!")
                     self._publish_mqtt(self.config['runes']['enable'], 'true')

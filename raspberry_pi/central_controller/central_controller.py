@@ -230,7 +230,7 @@ class CentralController:
             elif topic == self.config['esp32']['cheese']:
                 if payload.lower() == 'true':
                     self._request_audio_play('cheese')
-                    time.sleep(10.9)
+                    time.sleep(11.3)
                     self._unlock_maglock('rat_trap_door')
                     self.game_state['puzzle_states']['cheese'] = True
             
