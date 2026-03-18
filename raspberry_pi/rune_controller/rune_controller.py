@@ -72,6 +72,8 @@ class RuneController:
             'first_four_crystals_placed': False,
             'paradox_rune_unlocked': False,
             'shadow_rune_used_before': False,
+            'in_shadow_realm': False,  # Track if currently in shadow realm
+            'shadow_realm_toggle_active': True,  # Track if shadow realm toggle is still active
             'owl_activation_count': 0,  # Track owl usage
             'owl_active': False,        # Track if owl is currently active
             'owl_disabled': False,      # Track if owl is permanently disabled
@@ -298,6 +300,8 @@ class RuneController:
                 'first_four_crystals_placed': False,
                 'paradox_rune_unlocked': False,
                 'shadow_rune_used_before': False,
+                'in_shadow_realm': False,
+                'shadow_realm_toggle_active': True,
                 'owl_activation_count': 0,
                 'owl_active': False,
                 'owl_disabled': False,
@@ -382,30 +386,65 @@ class RuneController:
                 else:
                     actions.append("Mirror runes locked - spotlight rune not completed")
             
-            # Shadow realm rune
+            # Shadow realm rune - Toggle between shadow realm and normal realm
             elif rune_name == 'shadow_realm':
-                # Check if this is first time or repeat usage
-                if not self.game_state['shadow_rune_used_before']:
-                    # First time - play discovery audio
-                    event_name = self.config['audio']['audio_events']['shadow_first_time']
-                    self._request_audio_play(event_name)
-                    self.game_state['shadow_rune_used_before'] = True
-                    actions.append("First shadow realm discovery - played discovery audio")
-                else:
-                    # Repeat usage - play return audio
-                    event_name = self.config['audio']['audio_events']['shadow_repeat']
-                    self._request_audio_play(event_name)
-                    actions.append("Shadow realm return - played return audio")
+                if not self.game_state['shadow_realm_toggle_active']:
+                    actions.append("Shadow realm toggle disabled - paradox rune has been used")
+                    return {'rune': rune_name, 'actions': actions}
                 
-                # Activate shadow realm effects
-                self._publish_mqtt(self.config['lighting']['blacklights'], 'true')
-                self._publish_mqtt(self.config['sprite_players']['shadow_realm'], 'activate')
-                actions.append("Activated blacklights and shadow realm sprites")
+                if not self.game_state['in_shadow_realm']:
+                    # Entering shadow realm
+                    if not self.game_state['shadow_rune_used_before']:
+                        # First time ever - play discovery audio
+                        self._request_audio_play('shadow_first_time')
+                        self.game_state['shadow_rune_used_before'] = True
+                        actions.append("First shadow realm discovery - entered shadow realm")
+                    else:
+                        # Returning to shadow realm - play return audio
+                        self._request_audio_play('shadow_enter')
+                        actions.append("Returned to shadow realm")
+                    
+                    # Activate shadow realm effects
+                    self._publish_mqtt(self.config['lighting']['blacklights'], 'true')
+                    self._publish_mqtt(self.config['sprite_players']['shadow_realm'], 'activate')
+                    self.game_state['in_shadow_realm'] = True
+                    
+                    # Disable all other runes while in shadow realm
+                    self._disable_runes_for_shadow_realm()
+                    actions.append("Activated blacklights, shadow sprites, and disabled other runes")
+                    
+                else:
+                    # Leaving shadow realm back to normal realm
+                    self._request_audio_play('shadow_exit')
+                    
+                    # Deactivate shadow realm effects
+                    self._publish_mqtt(self.config['lighting']['blacklights'], 'false')
+                    self._publish_mqtt(self.config['sprite_players']['shadow_realm'], 'deactivate')
+                    self.game_state['in_shadow_realm'] = False
+                    
+                    # Re-enable all runes (except permanently disabled ones)
+                    self._enable_runes_from_shadow_realm()
+                    actions.append("Exited shadow realm - returned to normal realm and re-enabled runes")
             
             # Paradox rune
             elif rune_name == 'paradox':
                 if self.game_state['paradox_rune_unlocked']:
+                    self._request_audio_play('paradox_rune')
                     self._publish_mqtt(self.config['sprite_players']['paradox'], 'activate')
+                    
+                    # Disable shadow realm toggle permanently
+                    self.game_state['shadow_realm_toggle_active'] = False
+                    
+                    # If currently in shadow realm, exit it
+                    if self.game_state['in_shadow_realm']:
+                        self._publish_mqtt(self.config['lighting']['blacklights'], 'false')
+                        self._publish_mqtt(self.config['sprite_players']['shadow_realm'], 'deactivate')
+                        self.game_state['in_shadow_realm'] = False
+                        self._enable_runes_from_shadow_realm()
+                        actions.append("Paradox activated - exited shadow realm and disabled shadow realm toggle")
+                    else:
+                        actions.append("Paradox activated - shadow realm toggle disabled")
+                    
                     actions.append("Activated paradox sprite players")
                 else:
                     actions.append("Paradox rune locked - first four crystals not placed")
@@ -487,6 +526,16 @@ class RuneController:
         """Send rat cage activation signal to central controller."""
         self._publish_mqtt(self.config['runes']['dream_rat_cage'], 'true')
         logger.info("Sent rat cage activation to central controller")
+    
+    def _disable_runes_for_shadow_realm(self):
+        """Temporarily disable all runes except shadow rune while in shadow realm."""
+        self.runes_enabled = False  # Disable rune system except for shadow rune
+        logger.info("All runes disabled for shadow realm (except shadow rune)")
+    
+    def _enable_runes_from_shadow_realm(self):
+        """Re-enable runes when exiting shadow realm (except permanently disabled ones)."""
+        self.runes_enabled = True  # Re-enable rune system
+        logger.info("Runes re-enabled after exiting shadow realm")
     
     def _request_audio_play(self, event_name: str):
         """Request audio play from Windows event listener."""
@@ -646,6 +695,18 @@ class RuneController:
             if self.active_rune:
                 logger.info(f"Rune {rune_name} press ignored - {self.active_rune} is currently active")
                 return
+            
+            # Special case: Shadow rune can always be pressed (for realm toggling)
+            if rune_name == 'shadow_realm':
+                if not self.game_state['shadow_realm_toggle_active']:
+                    logger.info(f"Shadow rune press ignored - toggle disabled after paradox rune")
+                    return
+                # Allow shadow rune to proceed even if other runes are disabled
+            else:
+                # For all other runes, check if runes are enabled
+                if not self.runes_enabled:
+                    logger.info(f"Rune {rune_name} press ignored - runes disabled (possibly in shadow realm)")
+                    return
             
             # Check if owl rune is permanently disabled
             if rune_name == 'dream_owl' and self.game_state['owl_disabled']:

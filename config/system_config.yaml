@@ -182,7 +182,12 @@ audio:
     
     # Shadow rune events
     shadow_first_time: "shadow_realm_discovery"  # First activation
-    shadow_repeat: "shadow_realm_return"         # All subsequent activations
+    shadow_enter: "shadow_realm_enter"           # Entering shadow realm (return visits)
+    shadow_exit: "shadow_realm_exit"             # Leaving shadow realm back to normal
+    shadow_repeat: "shadow_realm_return"         # Legacy - kept for compatibility
+    
+    # Paradox rune event
+    paradox_rune: "paradox_activation"           # Paradox rune activation
     
     # Crystal placement events  
     crystal_1_placed: "crystal_1_sound"
