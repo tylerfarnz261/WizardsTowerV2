@@ -713,6 +713,7 @@ class RuneController:
                     
                     if elapsed >= active_duration:
                         # Deactivate the rune after timeout
+                        self._request_audio_play("rune_fizzled")  # Play fizzle sound effect
                         logger.info(f"Rune {self.active_rune} timed out after {active_duration} seconds")
                         self._deactivate_rune(self.active_rune)
                     else:

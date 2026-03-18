@@ -167,7 +167,7 @@ audio:
   # Audio event mappings (sent as GET requests to Windows machine)
   audio_events:
     # Rune system sounds
-    rune_activated: "rune_activation_sound"    # Sound when any rune is successfully activated
+    rune_activated: "rune_activated"    # Sound when any rune is successfully activated
     
     dream_rune: "dream_owl_sound"       # Legacy - kept for compatibility
     cheese: "cheese_sound"
