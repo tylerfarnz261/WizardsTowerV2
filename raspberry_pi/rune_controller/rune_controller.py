@@ -444,7 +444,7 @@ class RuneController:
         
         # First 3 activations are sequential
         if count == 0:
-            return self.config['audio']['audio_events']['owl_sequence_1']
+            return 'owl_discovery_1'
         elif count == 1:
             return self.config['audio']['audio_events']['owl_sequence_2'] 
         elif count == 2:
