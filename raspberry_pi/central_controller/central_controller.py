@@ -229,9 +229,14 @@ class CentralController:
             elif topic == self.config['esp32']['cheese']:
                 if payload.lower() == 'true':
                     self._request_audio_play('cheese')
+                    time.sleep(5)
+                    self.game_state['puzzle_states']['cheese'] = True
+
+            elif topic == self.config['esp32']['watcher']:
+                if payload.lower() == 'true':
+                    self._request_audio_play('watchers')
                     time.sleep(11.3)
                     self._unlock_maglock('rat_trap_door')
-                    self.game_state['puzzle_states']['cheese'] = True
             
             elif topic == self.config['esp32']['dials']:
                 if payload.lower() == 'true':
@@ -583,7 +588,8 @@ class CentralController:
                     'cross': self.config['esp32']['cross'],
                     'cheese': self.config['esp32']['cheese'],
                     'dials': self.config['esp32']['dials'],
-                    'staircase': self.config['esp32']['staircase']
+                    'staircase': self.config['esp32']['staircase'],
+                    'watchers': self.config['esp32']['watcher'],
                 }
                 
                 if puzzle_name in topic_map:

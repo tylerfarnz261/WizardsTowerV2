@@ -327,6 +327,7 @@ class RuneController:
             
             # Fire rune for fireplace door
             elif rune_name == 'fire_fireplace':
+                self._request_audio_play('fireplace_door')
                 self._publish_mqtt(self.config['runes']['fire_fireplace'], 'true')  # Publish to rune topic
                 actions.append("Fire fireplace rune activated - sent to central controller")
                 
@@ -473,7 +474,7 @@ class RuneController:
         """Play audio then send rat cage activation to central controller."""
         try:
             # Play audio
-            event_name = self.config['audio']['audio_events']['dream_rune']
+            event_name = 'rat_cage_unlock'
             self._request_audio_play(event_name)
             
             # Send rat cage activation to central controller after audio (assuming 10 seconds)
