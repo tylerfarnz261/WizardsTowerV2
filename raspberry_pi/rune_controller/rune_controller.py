@@ -661,6 +661,13 @@ class RuneController:
             self.active_rune = rune_name
             self.active_rune_start_time = datetime.now()
             
+            # Play rune activation sound effect
+            try:
+                self._request_audio_play("rune_activated")
+                logger.debug(f"Played activation sound for rune {rune_name}")
+            except Exception as audio_error:
+                logger.warning(f"Failed to play activation sound for {rune_name}: {audio_error}")
+            
             logger.info(f"Rune {rune_name} activated")
             
         except Exception as e:
