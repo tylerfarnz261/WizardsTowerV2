@@ -20,7 +20,10 @@ Hardware:
 
 Author: Wizards Control System
 """
-
+#TODO Reset torch states when exiting shadow realm
+#TODO Get Rat 1 audio from fiverr and upload to houdini
+#TODO Work on Sprite players via serial commands
+#TODO Paradox rune, final puzzle, and 5th crystal placed squence
 import time
 import threading
 import logging
@@ -66,6 +69,7 @@ class RuneController:
         self.game_state = {
             'cauldron_solved': False,
             'torch_states': {f'torch_{i}': False for i in range(1, 6)},
+            'torch_puzzle_solved': False,  # Track if torch puzzle has been solved
             'dream_runes_unlocked': False,
             'spotlight_completed': False,
             'mirror_runes_unlocked': False,
@@ -225,6 +229,7 @@ class RuneController:
             elif topic == self.config['runes']['torch_runes_disable']:
                 if payload.lower() == 'true':
                     self.game_state['torch_runes_disabled'] = True
+                    self.game_state['torch_puzzle_solved'] = True  # Track that torch puzzle is solved
                     logger.info("🔥 Torch runes disabled - puzzle solved by central controller!")
             
             elif topic == self.config['esp32']['cauldron']:
@@ -294,6 +299,7 @@ class RuneController:
             self.game_state = {
                 'cauldron_solved': False,
                 'torch_states': {f'torch_{i}': False for i in range(1, 6)},
+                'torch_puzzle_solved': False,
                 'dream_runes_unlocked': False,
                 'spotlight_completed': False,
                 'mirror_runes_unlocked': False,
@@ -422,6 +428,11 @@ class RuneController:
                     self._publish_mqtt(self.config['sprite_players']['shadow_realm'], 'deactivate')
                     self.game_state['in_shadow_realm'] = False
                     
+                    # Reset torch states to default ON (unless already solved)
+                    if not self.game_state.get('torch_puzzle_solved', False):
+                        self._reset_torches_to_default()
+                        actions.append("Reset torches to default ON state")
+                    
                     # Re-enable all runes (except permanently disabled ones)
                     self._enable_runes_from_shadow_realm()
                     actions.append("Exited shadow realm - returned to normal realm and re-enabled runes")
@@ -536,6 +547,22 @@ class RuneController:
         """Re-enable runes when exiting shadow realm (except permanently disabled ones)."""
         self.runes_enabled = True  # Re-enable rune system
         logger.info("Runes re-enabled after exiting shadow realm")
+    
+    def _reset_torches_to_default(self):
+        """Reset all torches to default ON state (used when exiting shadow realm)."""
+        try:
+            # Send reset command to central controller
+            reset_topic = self.config['torches']['reset_to_default']
+            self._publish_mqtt(reset_topic, 'true')
+            
+            # Update local game state
+            for i in range(1, 6):
+                self.game_state['torch_states'][f'torch_{i}'] = True
+            
+            logger.info("Sent torch reset command to central controller - all torches set to ON")
+            
+        except Exception as e:
+            logger.error(f"Error resetting torches to default: {e}")
     
     def _request_audio_play(self, event_name: str):
         """Request audio play from Windows event listener."""

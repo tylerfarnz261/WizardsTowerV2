@@ -188,6 +188,7 @@ class CentralController:
                 self.config['torches']['torch_3'],
                 self.config['torches']['torch_4'],
                 self.config['torches']['torch_5'],
+                self.config['torches']['reset_to_default'],  # Listen for torch reset requests
                 
                 # System topics
                 self.config['system']['reset_game'],
@@ -284,6 +285,11 @@ class CentralController:
                         logger.warning(f"Invalid torch topic format: {topic}")
                 except (ValueError, IndexError) as e:
                     logger.error(f"Error parsing torch topic '{topic}': {e}")
+            
+            # Handle torch reset to default request
+            elif topic == self.config['torches']['reset_to_default']:
+                if payload.lower() == 'true':
+                    self._reset_all_torches_to_default()
             
             # Handle rune-triggered maglocks
             elif topic == self.config['runes']['fire_fireplace']:
@@ -391,6 +397,27 @@ class CentralController:
                 
         except Exception as e:
             logger.error(f"Error checking torch puzzle solution: {e}")
+    
+    def _reset_all_torches_to_default(self):
+        """Reset all torches to default ON state (used when exiting shadow realm)."""
+        try:
+            # Only reset if puzzle hasn't been solved yet
+            if self.game_state['torch_puzzle_solved']:
+                logger.info("Torch reset ignored - puzzle already solved")
+                return
+            
+            # Turn all torches ON
+            for i in range(1, 6):
+                torch_key = f'torch_{i}'
+                if torch_key in self.torch_relays:
+                    relay = self.torch_relays[torch_key]
+                    relay.on()  # Turn torch light ON
+                    self.game_state['torch_states'][torch_key] = True
+            
+            logger.info("All torches reset to default ON state (shadow realm exit)")
+            
+        except Exception as e:
+            logger.error(f"Error resetting torches to default: {e}")
     
     def _handle_all_crystals_placed(self):
         """Handle the final crystal placement - trigger win sequence."""

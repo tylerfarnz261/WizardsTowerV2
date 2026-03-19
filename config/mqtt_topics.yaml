@@ -82,6 +82,7 @@ torches:
   torch_3: "escaperoom/torches/torch3"
   torch_4: "escaperoom/torches/torch4"
   torch_5: "escaperoom/torches/torch5"
+  reset_to_default: "escaperoom/torches/reset_default"  # Reset all torches to ON
 
 # Audio System Topics
 audio:
