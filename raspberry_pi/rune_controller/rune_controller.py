@@ -20,8 +20,6 @@ Hardware:
 
 Author: Wizards Control System
 """
-#TODO Reset torch states when exiting shadow realm
-#TODO Get Rat 1 audio from fiverr and upload to houdini
 #TODO Work on Sprite players via serial commands
 #TODO Paradox rune, final puzzle, and 5th crystal placed squence
 import time
@@ -527,8 +525,8 @@ class RuneController:
             event_name = 'rat_cage_unlock'
             self._request_audio_play(event_name)
             
-            # Send rat cage activation to central controller after audio (assuming 10 seconds)
-            threading.Timer(10.0, self._send_rat_cage_activation).start()
+            # Send rat cage activation to central controller after audio (assuming 12 seconds)
+            threading.Timer(12.0, self._send_rat_cage_activation).start()
             
         except Exception as e:
             logger.error(f"Error in audio then rat cage activation: {e}")
