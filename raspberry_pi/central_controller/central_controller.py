@@ -136,9 +136,17 @@ class CentralController:
                 led_device.off()  # Start with outputs OFF
                 self.other_devices[output_name] = led_device
             
+            # Setup lighting control pins
+            self.lighting_devices = {}
+            for lighting_name, pin_num in self.config['central_controller']['lighting_outputs'].items():
+                led_device = LED(pin_num)
+                led_device.off()  # Start with lights OFF
+                self.lighting_devices[lighting_name] = led_device
+            
             logger.info("GPIO initialized successfully")
             logger.info(f"Initialized {len(self.maglock_devices)} maglocks")
             logger.info(f"Initialized {len(self.torch_relays)} torch relays")
+            logger.info(f"Initialized {len(self.lighting_devices)} lighting controls")
             
         except Exception as e:
             logger.error(f"Failed to initialize GPIO: {e}")
@@ -193,6 +201,12 @@ class CentralController:
                 # System topics
                 self.config['system']['reset_game'],
                 self.config['system']['maintenance'],
+                
+                # Lighting control topics
+                self.config['lighting']['blacklights'],
+                self.config['lighting']['spotlight'], 
+                self.config['lighting']['mirror_backlight_1'],
+                self.config['lighting']['mirror_backlight_2'],
                 
                 # Rune topics that affect maglocks
                 self.config['runes']['fire_fireplace'],
@@ -300,6 +314,19 @@ class CentralController:
                 if payload.lower() == 'true':
                     self._unlock_maglock('rat_cage')
             
+            # Handle lighting controls
+            elif topic == self.config['lighting']['blacklights']:
+                self._control_lighting('blacklights', payload.lower() == 'true')
+            
+            elif topic == self.config['lighting']['spotlight']:
+                self._control_lighting('owl_spotlight', payload.lower() == 'true')
+            
+            elif topic == self.config['lighting']['mirror_backlight_1']:
+                self._control_lighting('mirror_backlight_1', payload.lower() == 'true')
+            
+            elif topic == self.config['lighting']['mirror_backlight_2']:
+                self._control_lighting('mirror_backlight_2', payload.lower() == 'true')
+            
             # Handle system commands
             elif topic == self.config['system']['reset_game']:
                 if payload.lower() == 'true':
@@ -344,6 +371,23 @@ class CentralController:
                 
         except Exception as e:
             logger.error(f"Failed to lock maglock {maglock_name}: {e}")
+    
+    def _control_lighting(self, lighting_name: str, turn_on: bool):
+        """Control a specific lighting device."""
+        try:
+            if lighting_name in self.lighting_devices:
+                device = self.lighting_devices[lighting_name]
+                if turn_on:
+                    device.on()
+                    logger.info(f"Turned ON lighting: {lighting_name}")
+                else:
+                    device.off()
+                    logger.info(f"Turned OFF lighting: {lighting_name}")
+            else:
+                logger.warning(f"Unknown lighting device: {lighting_name}")
+                
+        except Exception as e:
+            logger.error(f"Failed to control lighting {lighting_name}: {e}")
     
     def _toggle_torch_relay(self, torch_num: int):
         """Toggle a torch relay (turn light OFF if ON, or ON if OFF)."""

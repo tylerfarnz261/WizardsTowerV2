@@ -104,6 +104,13 @@ central_controller:
     relay_2: 8   # General purpose relay
     relay_3: 7   # General purpose relay
     relay_4: 12  # General purpose relay
+  
+  # GPIO pins for lighting control
+  lighting_outputs:
+    blacklights: 5       # Shadow realm blacklights
+    mirror_backlight_1: 6   # Mirror 1 backlight
+    mirror_backlight_2: 13  # Mirror 2 backlight  
+    owl_spotlight: 19    # Owl spotlight
 
 # ESP32 Configuration Templates
 esp32_config:
