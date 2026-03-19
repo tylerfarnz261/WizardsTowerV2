@@ -89,6 +89,7 @@ central_controller:
     fireplace_door: 10
     treasure_chest: 9
     staircase_compartment: 11
+    sword_maglock: 25  # Sword maglock (was relay_1)
   
   # GPIO pins for torch relay control (turn torch lights ON/OFF)
   torch_relays:
@@ -100,7 +101,6 @@ central_controller:
   
   # GPIO pins for other outputs
   other_outputs:
-    relay_1: 25  # General purpose relay
     relay_2: 8   # General purpose relay
     relay_3: 7   # General purpose relay
     relay_4: 12  # General purpose relay
@@ -198,6 +198,8 @@ audio:
     
     # Crystal placement events  
     crystal_1_placed: "crystal_1_sound"
+    pull_sword: "pull_sword"              # All crystals placed - sword is revealed
+    wizards_win: "wizards_win"            # Final victory audio
     crystal_2_placed: "crystal_2_sound" 
     crystal_3_placed: "crystal_3_sound"
     first_four_crystals: "crystals_complete_fanfare"

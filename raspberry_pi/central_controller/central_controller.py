@@ -472,12 +472,20 @@ class CentralController:
             logger.error(f"Error resetting torches to default: {e}")
     
     def _handle_all_crystals_placed(self):
-        """Handle the final crystal placement - play pull sword audio."""
+        """Handle the final crystal placement - play pull sword audio and unlock sword."""
         try:
             logger.info("All crystals placed - playing pull sword audio!")
             
             # Play pull sword audio - this should reveal the sword input
             self._request_audio_play('pull_sword')
+            
+            # Wait 8 seconds for audio/dramatic effect
+            logger.info("Waiting 8 seconds before releasing sword maglock...")
+            time.sleep(8)
+            
+            # Unlock the sword maglock
+            self._unlock_maglock('sword_maglock')
+            logger.info("Sword maglock released - sword is now available!")
             
             # Update game state
             self.game_state['crystal_states']['all_complete'] = True
@@ -510,11 +518,12 @@ class CentralController:
         try:
             logger.info("Resetting game system...")
             
-            # Lock all maglocks
+            # Lock all maglocks (including sword maglock)
             for maglock_name in self.maglock_devices.keys():
                 self._lock_maglock(maglock_name)
+            logger.info("All maglocks locked and re-armed for new game")
             
-            # Reset game state
+            # Reset game state  
             self.game_state = {
                 'active': True,
                 'start_time': datetime.now(),
@@ -534,6 +543,8 @@ class CentralController:
                 'puzzle_states': {name: False for name in self.game_state['puzzle_states'].keys()},
                 'maglock_states': {name: False for name in self.maglock_devices.keys()}
             }
+            
+            logger.info("All maglocks locked, including sword maglock - ready for new game!")
             
             # Reset torch relays to ON (lights on)
             for torch_key, relay in self.torch_relays.items():
