@@ -439,7 +439,7 @@ class CentralController:
             logger.info("Resetting game system...")
             
             # Lock all maglocks
-            for maglock_name in self.maglock_pins.keys():
+            for maglock_name in self.maglock_devices.keys():
                 self._lock_maglock(maglock_name)
             
             # Reset game state
@@ -481,7 +481,7 @@ class CentralController:
         if enable:
             logger.info("Entering maintenance mode")
             # Unlock all maglocks for maintenance access
-            for maglock_name in self.maglock_pins.keys():
+            for maglock_name in self.maglock_devices.keys():
                 self._unlock_maglock(maglock_name)
             self.game_state['active'] = False
         else:
@@ -560,7 +560,7 @@ class CentralController:
         @self.flask_app.route('/maglocks/<maglock_name>/unlock', methods=['POST'])
         def unlock_maglock_endpoint(maglock_name):
             """Manually unlock a specific maglock."""
-            if maglock_name in self.maglock_pins:
+            if maglock_name in self.maglock_devices:
                 self._unlock_maglock(maglock_name)
                 return jsonify({'status': 'success', 'maglock': maglock_name, 'action': 'unlocked'})
             else:
@@ -569,7 +569,7 @@ class CentralController:
         @self.flask_app.route('/maglocks/<maglock_name>/lock', methods=['POST'])
         def lock_maglock_endpoint(maglock_name):
             """Manually lock a specific maglock."""
-            if maglock_name in self.maglock_pins:
+            if maglock_name in self.maglock_devices:
                 self._lock_maglock(maglock_name)
                 return jsonify({'status': 'success', 'maglock': maglock_name, 'action': 'locked'})
             else:
@@ -582,7 +582,7 @@ class CentralController:
             for name, state in self.game_state['maglock_states'].items():
                 maglocks.append({
                     'name': name,
-                    'pin': self.maglock_pins[name],
+                    'pin': self.config['central_controller']['maglocks'][name],
                     'unlocked': state
                 })
             return jsonify({'maglocks': maglocks})
