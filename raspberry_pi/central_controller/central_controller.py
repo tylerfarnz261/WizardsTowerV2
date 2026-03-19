@@ -375,7 +375,7 @@ class CentralController:
             
             solution = self.config['game_logic']['torch_solution']
             current_state = self.game_state['torch_states']
-            
+            print(current_state)
             # Check if current state matches solution
             matches_solution = all(
                 current_state.get(f'torch_{i}', False) == solution[f'torch_{i}']
