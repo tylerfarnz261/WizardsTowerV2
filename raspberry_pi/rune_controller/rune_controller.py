@@ -443,6 +443,7 @@ class RuneController:
                     actions.append("Exited shadow realm - returned to normal realm and re-enabled runes")
             
             # Paradox rune
+            #TODO retrieve audio from FIVER and put into Houdini
             elif rune_name == 'paradox':
                 if self.game_state['paradox_rune_unlocked']:
                     self._request_audio_play('paradox_rune')
