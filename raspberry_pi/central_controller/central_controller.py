@@ -465,10 +465,7 @@ class CentralController:
             for torch_key, relay in self.torch_relays.items():
                 relay.on()  # Turn torch lights ON
                 
-            # Publish reset signal to rune controller
-            self._publish_mqtt(self.config['system']['reset_game'], 'true')
-            
-            # Publish reset signal to all systems
+            # Publish reset signal to all systems (but not to self to avoid loop)
             self._publish_mqtt(self.config['system']['game_state'], 'RESET')
             
             logger.info("Game system reset completed")
