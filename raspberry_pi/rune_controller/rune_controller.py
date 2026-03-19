@@ -538,13 +538,14 @@ class RuneController:
     
     def _disable_runes_for_shadow_realm(self):
         """Temporarily disable all runes except shadow rune while in shadow realm."""
-        self.runes_enabled = False  # Disable rune system except for shadow rune
-        logger.info("All runes disabled for shadow realm (except shadow rune)")
+        # Note: in_shadow_realm state is used by button monitor loop to only allow shadow rune
+        # We don't disable runes_enabled here as wand cabinet should stay "opened"  
+        logger.info("In shadow realm - only shadow rune will respond to button presses")
     
     def _enable_runes_from_shadow_realm(self):
         """Re-enable runes when exiting shadow realm (except permanently disabled ones)."""
-        self.runes_enabled = True  # Re-enable rune system
-        logger.info("Runes re-enabled after exiting shadow realm")
+        # Note: runes_enabled stays True, just in_shadow_realm is set to False
+        logger.info("Exited shadow realm - all runes (except permanently disabled) re-enabled")
     
     def _reset_torches_to_default(self):
         """Reset all torches to default ON state (used when exiting shadow realm)."""
@@ -680,9 +681,14 @@ class RuneController:
         """Monitor rune buttons for presses."""
         while True:
             try:
+                # Don't monitor ANY runes until wand cabinet is opened
+                if not self.runes_enabled:
+                    time.sleep(0.1)
+                    continue
+                
                 for rune_name, (pin_type, button_device) in self.rune_buttons.items():
-                    # Always monitor shadow rune (for realm toggling), skip others if runes disabled
-                    if not self.runes_enabled and rune_name != 'shadow_realm':
+                    # Special case: In shadow realm, only monitor shadow rune
+                    if self.game_state.get('in_shadow_realm', False) and rune_name != 'shadow_realm':
                         continue
                     
                     if pin_type == 'mcp':
@@ -721,17 +727,17 @@ class RuneController:
                 logger.info(f"Rune {rune_name} press ignored - {self.active_rune} is currently active")
                 return
             
-            # Special case: Shadow rune can always be pressed (for realm toggling)
+            # First check: NO runes work until wand cabinet is opened
+            if not self.runes_enabled:
+                logger.info(f"Rune {rune_name} press ignored - wand cabinet not opened yet")
+                return
+            
+            # Special case: Shadow rune has additional checks for realm toggling
             if rune_name == 'shadow_realm':
                 if not self.game_state['shadow_realm_toggle_active']:
                     logger.info(f"Shadow rune press ignored - toggle disabled after paradox rune")
                     return
-                # Allow shadow rune to proceed even if other runes are disabled
-            else:
-                # For all other runes, check if runes are enabled
-                if not self.runes_enabled:
-                    logger.info(f"Rune {rune_name} press ignored - runes disabled (possibly in shadow realm)")
-                    return
+                # Shadow rune passes all checks, allow it to proceed
             
             # Check if owl rune is permanently disabled
             if rune_name == 'dream_owl' and self.game_state['owl_disabled']:
