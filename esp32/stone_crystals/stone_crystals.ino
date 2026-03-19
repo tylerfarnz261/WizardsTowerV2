@@ -43,9 +43,11 @@ const int audio_server_port = 80;
 // MQTT topics
 const char* topic_first_four_placed = "escaperoom/esp32/crystals/first_four_placed";
 const char* topic_all_placed = "escaperoom/esp32/crystals/all_placed";
+const char* topic_win_condition = "escaperoom/gamestate/win";
 
 // Hardware pins for crystal sensors
 const int CRYSTAL_PINS[5] = {2, 4, 5, 18, 19};  // RED, GREEN, BLUE, PURPLE, WHITE
+const int SWORD_PIN = 21;  // Sword input pin
 
 // Crystal definitions
 enum Crystal {
@@ -70,6 +72,10 @@ bool green_unlocked = false;
 bool all_crystals_complete = false;
 bool sequence_in_progress = false;
 bool first_four_ever_completed = false;  // Track if fanfare has ever been played
+bool sword_enabled = false;
+bool sword_placed = false;
+bool sword_prev_state = false;
+unsigned long sword_debounce_time = 0;
 
 // WiFi and MQTT clients
 WiFiClient espClient;
@@ -91,6 +97,7 @@ void setup() {
   for (int i = 0; i < 5; i++) {
     pinMode(CRYSTAL_PINS[i], INPUT_PULLUP);  // Assuming HIGH = not placed, LOW = placed
   }
+  pinMode(SWORD_PIN, INPUT_PULLUP);  // Sword input pin
   pinMode(LED_BUILTIN, OUTPUT);
   
   // Connect to WiFi
@@ -117,6 +124,11 @@ void loop() {
   
   // Process crystal sensors
   process_crystal_sensors();
+  
+  // Process sword input if enabled
+  if (sword_enabled) {
+    process_sword_input();
+  }
   
   // Check game state
   check_game_state();
@@ -214,7 +226,7 @@ void process_crystal_sensors() {
 void trigger_audio_event(String event_name) {
   if (WiFi.status() == WL_CONNECTED) {
     HTTPClient http;
-    String url = "http://" + String(audio_server_ip) + "/" + event_name;
+    String url = "http://" + String(audio_server_ip)+":15000" + "/" + event_name;
     http.begin(url);
     
     int httpResponseCode = http.GET();
@@ -338,45 +350,98 @@ void first_four_complete_event() {
 
 void all_crystals_complete_event() {
   Serial.println("=== ALL CRYSTALS PLACED! ===");
-  Serial.println("WIN SEQUENCE INITIATED!");
+  Serial.println("PULL SWORD SEQUENCE INITIATED!");
   
   sequence_in_progress = true;
+  sword_enabled = true;  // Enable the sword input
   
   if (mqtt_client.connected()) {
     mqtt_client.publish(topic_all_placed, "true");
-    Serial.println("Published: All crystals placed - WIN CONDITION!");
+    Serial.println("Published: All crystals placed - Pull sword audio should play!");
   }
   
-  // Victory light sequence
+  Serial.println("Sword input is now ENABLED! Pull the sword to win!");
+  
+  // Moderate light sequence to indicate sword is available
+  sword_available_sequence();
+}
+
+void sword_available_sequence() {
+  Serial.println("Playing sword available sequence...");
+  
+  // Slower pulsing to indicate sword is available
+  for (int i = 0; i < 3; i++) {
+    digitalWrite(LED_BUILTIN, HIGH);
+    delay(300);
+    digitalWrite(LED_BUILTIN, LOW);
+    delay(300);
+  }
+  
+  Serial.println("Sword available sequence complete!");
+}
+
+void process_sword_input() {
+  // Read sword sensor (LOW = sword pulled with pull-up)
+  bool sensor_reading = !digitalRead(SWORD_PIN);  // Invert for pulled = true
+  
+  // Handle debouncing
+  if (sensor_reading != sword_prev_state) {
+    sword_debounce_time = millis();
+  }
+  
+  if ((millis() - sword_debounce_time) > DEBOUNCE_DELAY) {
+    if (sensor_reading != sword_placed) {
+      sword_placed = sensor_reading;
+      
+      if (sword_placed) {
+        sword_pulled_event();
+      }
+    }
+  }
+  
+  sword_prev_state = sensor_reading;
+}
+
+void sword_pulled_event() {
+  Serial.println("=== SWORD PULLED! ===");
+  Serial.println("WIN CONDITION TRIGGERED!");
+  
+  if (mqtt_client.connected()) {
+    mqtt_client.publish(topic_win_condition, "true");
+    Serial.println("Published: WIN CONDITION - Game Won!");
+  }
+  
+  // Final victory sequence
   victory_sequence();
 }
 
 void victory_sequence() {
-  Serial.println("Playing victory sequence...");
+  Serial.println("Playing final victory sequence...");
   
   // Rapid flashing victory pattern
-  for (int cycle = 0; cycle < 5; cycle++) {
-    for (int i = 0; i < 10; i++) {
+  for (int cycle = 0; cycle < 10; cycle++) {
+    for (int i = 0; i < 5; i++) {
       digitalWrite(LED_BUILTIN, HIGH);
       delay(50);
       digitalWrite(LED_BUILTIN, LOW);
       delay(50);
     }
-    delay(500);
+    delay(200);
   }
   
   // Keep LED on to show completion
   digitalWrite(LED_BUILTIN, HIGH);
   
-  Serial.println("Victory sequence complete!");
+  Serial.println("VICTORY! Game complete!");
 }
 
 void print_instructions() {
   Serial.println("=== CRYSTAL PLACEMENT INSTRUCTIONS ===");
   Serial.println("1. Place RED, BLUE, PURPLE, and WHITE crystals first");
   Serial.println("2. GREEN crystal will unlock after first 4 are placed");
-  Serial.println("3. Place GREEN crystal last to trigger win sequence");
-  Serial.println("4. Removing any crystal will reset progress");
+  Serial.println("3. Place GREEN crystal to enable sword");
+  Serial.println("4. Pull the sword to trigger win condition!");
+  Serial.println("5. Removing any crystal will reset progress");
   Serial.println("=======================================");
 }
 

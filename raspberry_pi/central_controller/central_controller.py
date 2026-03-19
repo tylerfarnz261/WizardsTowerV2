@@ -208,6 +208,9 @@ class CentralController:
                 self.config['lighting']['mirror_backlight_1'],
                 self.config['lighting']['mirror_backlight_2'],
                 
+                # Game state topics
+                self.config['game_state']['win_condition'],
+                
                 # Rune topics that affect maglocks
                 self.config['runes']['fire_fireplace'],
                 self.config['runes']['dream_rat_cage']
@@ -326,6 +329,11 @@ class CentralController:
             
             elif topic == self.config['lighting']['mirror_backlight_2']:
                 self._control_lighting('mirror_backlight_2', payload.lower() == 'true')
+            
+            # Handle win condition
+            elif topic == self.config['game_state']['win_condition']:
+                if payload.lower() == 'true':
+                    self._handle_win_condition()
             
             # Handle system commands
             elif topic == self.config['system']['reset_game']:
@@ -464,18 +472,38 @@ class CentralController:
             logger.error(f"Error resetting torches to default: {e}")
     
     def _handle_all_crystals_placed(self):
-        """Handle the final crystal placement - trigger win sequence."""
+        """Handle the final crystal placement - play pull sword audio."""
         try:
-            logger.info("All crystals placed - initiating win sequence!")
+            logger.info("All crystals placed - playing pull sword audio!")
             
-            # Trigger final sequence - could unlock another maglock or trigger win condition
-            self._publish_mqtt(self.config['game_state']['win_condition'], 'true')
+            # Play pull sword audio - this should reveal the sword input
+            self._request_audio_play('pull_sword')
             
             # Update game state
             self.game_state['crystal_states']['all_complete'] = True
             
         except Exception as e:
             logger.error(f"Error handling all crystals placed: {e}")
+    
+    def _handle_win_condition(self):
+        """Handle the win condition - play wizards win audio and deactivate all runes."""
+        try:
+            logger.info("WIN CONDITION TRIGGERED! Playing wizards win audio...")
+            
+            # Play wizards win audio
+            self._request_audio_play('wizards_win')
+            
+            # Deactivate all runes by publishing to rune controller
+            self._publish_mqtt(self.config['runes']['enable'], 'false')
+            
+            # Update game state to won
+            self.game_state['game_won'] = True
+            self.game_state['game_status'] = 'WON'
+            
+            logger.info("Game won! All runes deactivated. Waiting for reset.")
+            
+        except Exception as e:
+            logger.error(f"Error handling win condition: {e}")
     
     def _reset_game(self):
         """Reset the entire game system."""
@@ -490,6 +518,8 @@ class CentralController:
             self.game_state = {
                 'active': True,
                 'start_time': datetime.now(),
+                'game_won': False,
+                'game_status': 'PLAYING',
                 'torch_states': {f'torch_{i}': True for i in range(1, 6)},  # Reset torches to ON
                 'torch_puzzle_solved': False,
                 'crystal_states': {

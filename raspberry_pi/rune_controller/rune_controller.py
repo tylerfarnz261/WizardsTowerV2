@@ -20,7 +20,6 @@ Hardware:
 
 Author: Wizards Control System
 """
-#TODO Work on Sprite players via serial commands
 #TODO Paradox rune, final puzzle, and 5th crystal placed squence
 import time
 import threading
@@ -203,7 +202,8 @@ class RuneController:
                 self.config['runes']['torch_runes_disable'],  # Listen for torch puzzle solved
                 self.config['esp32']['cauldron'],  # Listen for cauldron solved to unlock dream runes
                 self.config['esp32']['wand_cabinet'],
-                self.config['esp32']['crystals_first_four']
+                self.config['esp32']['crystals_first_four'],
+                self.config['game_state']['win_condition']  # Listen for win condition
             ]
             for topic in topics:
                 client.subscribe(topic)
@@ -248,6 +248,13 @@ class RuneController:
                     self.game_state['first_four_crystals_placed'] = True
                     self.game_state['paradox_rune_unlocked'] = True
                     logger.info("First four crystals placed - Paradox rune unlocked!")
+            
+            elif topic == self.config['game_state']['win_condition']:
+                if payload.lower() == 'true':
+                    logger.info("WIN CONDITION RECEIVED - Deactivating all runes and stopping system")
+                    self._deactivate_all_runes()
+                    self.system_enabled = False
+                    self.rune_system_enabled = False
             
         except Exception as e:
             logger.error(f"Error processing MQTT message: {e}")
@@ -439,6 +446,7 @@ class RuneController:
             elif rune_name == 'paradox':
                 if self.game_state['paradox_rune_unlocked']:
                     self._request_audio_play('paradox_rune')
+                    time.sleep(10) #TODO Adjust sleep for professor paradox
                     self._publish_mqtt(self.config['sprite_players']['paradox'], 'activate')
                     
                     # Disable shadow realm toggle permanently
@@ -480,7 +488,7 @@ class RuneController:
             self.game_state['owl_activation_count'] += 1
             
             # Schedule spotlight turn-off (assuming 30 seconds for audio)
-            threading.Timer(30.0, self._turn_off_spotlight).start()
+            threading.Timer(10.0, self._turn_off_spotlight).start()
             
             logger.info(f"Owl activated (count: {self.game_state['owl_activation_count']}) - played: {audio_event}")
             
