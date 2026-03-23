@@ -199,7 +199,6 @@ class CentralController:
                 self.config['torches']['reset_to_default'],  # Listen for torch reset requests
                 
                 # System topics
-                self.config['system']['reset_game'],
                 self.config['system']['maintenance'],
                 
                 # Lighting control topics
@@ -551,7 +550,7 @@ class CentralController:
                 relay.on()  # Turn torch lights ON
                 
             # Publish reset signal to all systems (but not to self to avoid loop)
-            self._publish_mqtt(self.config['system']['game_state'], 'RESET')
+            self._publish_mqtt(self.config['system']['reset_game'], 'true')
             
             logger.info("Game system reset completed")
             

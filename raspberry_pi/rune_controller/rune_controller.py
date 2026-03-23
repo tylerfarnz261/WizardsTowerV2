@@ -203,7 +203,8 @@ class RuneController:
                 self.config['esp32']['cauldron'],  # Listen for cauldron solved to unlock dream runes
                 self.config['esp32']['wand_cabinet'],
                 self.config['esp32']['crystals_first_four'],
-                self.config['game_state']['win_condition']  # Listen for win condition
+                self.config['game_state']['win_condition'],  # Listen for win condition
+                self.config['system']['reset_game']  # Listen for system reset
             ]
             for topic in topics:
                 client.subscribe(topic)
@@ -256,8 +257,50 @@ class RuneController:
                     self.system_enabled = False
                     self.rune_system_enabled = False
             
+            elif topic == self.config['system']['reset_game']:
+                if payload.lower() == 'true':
+                    logger.info("SYSTEM RESET RECEIVED - Resetting all game state to defaults")
+                    self._reset_system_to_defaults()
+            
         except Exception as e:
             logger.error(f"Error processing MQTT message: {e}")
+    
+    def _reset_system_to_defaults(self):
+        """Reset the entire rune system to default state."""
+        try:
+            # Deactivate all runes and turn off lights
+            self._deactivate_all_runes()
+            
+            # Reset runes enabled state
+            self.runes_enabled = False
+            
+            # Reset all game state to defaults
+            self.game_state = {
+                'cauldron_solved': False,
+                'torch_states': {f'torch_{i}': True for i in range(1, 6)},  # Torches start ON
+                'torch_puzzle_solved': False,
+                'dream_runes_unlocked': False,
+                'spotlight_completed': False,
+                'mirror_runes_unlocked': False,
+                'first_four_crystals_placed': False,
+                'paradox_rune_unlocked': False,
+                'shadow_rune_used_before': False,
+                'in_shadow_realm': False,
+                'shadow_realm_toggle_active': True,
+                'owl_activation_count': 0,
+                'owl_active': False,
+                'owl_disabled': False,
+                'torch_runes_disabled': False,
+                'fireplace_rune_disabled': False,
+                'rat_rune_disabled': False,
+                'mirror_1_disabled': False,
+                'mirror_2_disabled': False
+            }
+            
+            logger.info("Rune system reset to defaults - ready for new game!")
+            
+        except Exception as e:
+            logger.error(f"Error resetting system to defaults: {e}")
     
     def _init_flask_routes(self):
         """Initialize Flask HTTP routes."""

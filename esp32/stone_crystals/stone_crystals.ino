@@ -28,8 +28,8 @@
 #include <HTTPClient.h>
 
 // WiFi credentials
-const char* ssid = "EscapeRoom_WiFi";
-const char* password = "YourWiFiPassword";
+const char* ssid = "Verizon_V3N3DV";
+const char* password = "tarry4says9nick";
 
 // MQTT settings
 const char* mqtt_server = "192.168.0.194";
@@ -37,13 +37,14 @@ const int mqtt_port = 1883;
 const char* device_id = "stone_crystals_esp32";
 
 // Audio server settings
-const char* audio_server_ip = "192.168.1.150";
-const int audio_server_port = 80;
+const char* audio_server_ip = "192.168.0.156";
+const int audio_server_port = 15000;
 
 // MQTT topics
 const char* topic_first_four_placed = "escaperoom/esp32/crystals/first_four_placed";
 const char* topic_all_placed = "escaperoom/esp32/crystals/all_placed";
 const char* topic_win_condition = "escaperoom/gamestate/win";
+const char* topic_reset = "escaperoom/system/reset";
 
 // Hardware pins for crystal sensors
 const int CRYSTAL_PINS[5] = {2, 4, 5, 18, 19};  // RED, GREEN, BLUE, PURPLE, WHITE
@@ -81,11 +82,6 @@ unsigned long sword_debounce_time = 0;
 WiFiClient espClient;
 PubSubClient mqtt_client(espClient);
 
-// Status LED (built-in)
-bool led_blink_state = false;
-unsigned long last_blink_time = 0;
-const unsigned long BLINK_INTERVAL = 500;  // Faster blink for this puzzle
-
 void setup() {
   Serial.begin(115200);
   delay(1000);
@@ -98,7 +94,6 @@ void setup() {
     pinMode(CRYSTAL_PINS[i], INPUT_PULLUP);  // Assuming HIGH = not placed, LOW = placed
   }
   pinMode(SWORD_PIN, INPUT_PULLUP);  // Sword input pin
-  pinMode(LED_BUILTIN, OUTPUT);
   
   // Connect to WiFi
   setup_wifi();
@@ -119,8 +114,7 @@ void loop() {
   }
   mqtt_client.loop();
   
-  // Handle status LED blinking
-  handle_status_led();
+
   
   // Process crystal sensors
   process_crystal_sensors();
@@ -173,6 +167,10 @@ void reconnect_mqtt() {
       String status_topic = String("escaperoom/status/") + device_id;
       mqtt_client.publish(status_topic.c_str(), "online");
       
+      // Subscribe to reset topic
+      mqtt_client.subscribe(topic_reset);
+      Serial.println("Subscribed to reset topic");
+      
     } else {
       Serial.print(" failed, rc=");
       Serial.print(mqtt_client.state());
@@ -193,7 +191,11 @@ void mqtt_callback(char* topic, byte* payload, unsigned int length) {
   Serial.print("]: ");
   Serial.println(message);
   
-  // Handle any incoming messages (like reset commands)
+  // Handle reset command
+  if (String(topic) == topic_reset && message.toLowerCase() == "true") {
+    Serial.println("RESET COMMAND RECEIVED - Resetting to default state");
+    reset_game_state();
+  }
 }
 
 void process_crystal_sensors() {
@@ -262,13 +264,6 @@ void crystal_placed_event(int crystal_index) {
     trigger_audio_event(audio_event);
   }
   
-  // Flash LED to acknowledge valid placement
-  for (int i = 0; i < 3; i++) {
-    digitalWrite(LED_BUILTIN, HIGH);
-    delay(100);
-    digitalWrite(LED_BUILTIN, LOW);
-    delay(100);
-  }
   
   print_crystal_status();
 }
@@ -327,24 +322,14 @@ void first_four_complete_event() {
   
   // Only play fanfare the very first time this happens
   if (!first_four_ever_completed) {
-    Serial.println("FIRST TIME COMPLETION - Playing fanfare!");
-    trigger_audio_event("crystals_complete_fanfare");
     first_four_ever_completed = true;  // Mark that fanfare has been played
+    if (mqtt_client.connected()) {
+      mqtt_client.publish(topic_first_four_placed, "true");
+      Serial.println("Published: First four crystals placed - paradox compartment unlocked");
+      delay(12500);
+    }
   } else {
     Serial.println("Subsequent completion - no fanfare (GREEN stays unlocked)");
-  }
-  
-  if (mqtt_client.connected()) {
-    mqtt_client.publish(topic_first_four_placed, "true");
-    Serial.println("Published: First four crystals placed - paradox compartment unlocked");
-  }
-  
-  // Special light sequence for first four completion
-  for (int i = 0; i < 5; i++) {
-    digitalWrite(LED_BUILTIN, HIGH);
-    delay(200);
-    digitalWrite(LED_BUILTIN, LOW);
-    delay(200);
   }
 }
 
@@ -362,23 +347,9 @@ void all_crystals_complete_event() {
   
   Serial.println("Sword input is now ENABLED! Pull the sword to win!");
   
-  // Moderate light sequence to indicate sword is available
-  sword_available_sequence();
 }
 
-void sword_available_sequence() {
-  Serial.println("Playing sword available sequence...");
-  
-  // Slower pulsing to indicate sword is available
-  for (int i = 0; i < 3; i++) {
-    digitalWrite(LED_BUILTIN, HIGH);
-    delay(300);
-    digitalWrite(LED_BUILTIN, LOW);
-    delay(300);
-  }
-  
-  Serial.println("Sword available sequence complete!");
-}
+
 
 void process_sword_input() {
   // Read sword sensor (LOW = sword pulled with pull-up)
@@ -411,28 +382,6 @@ void sword_pulled_event() {
     Serial.println("Published: WIN CONDITION - Game Won!");
   }
   
-  // Final victory sequence
-  victory_sequence();
-}
-
-void victory_sequence() {
-  Serial.println("Playing final victory sequence...");
-  
-  // Rapid flashing victory pattern
-  for (int cycle = 0; cycle < 10; cycle++) {
-    for (int i = 0; i < 5; i++) {
-      digitalWrite(LED_BUILTIN, HIGH);
-      delay(50);
-      digitalWrite(LED_BUILTIN, LOW);
-      delay(50);
-    }
-    delay(200);
-  }
-  
-  // Keep LED on to show completion
-  digitalWrite(LED_BUILTIN, HIGH);
-  
-  Serial.println("VICTORY! Game complete!");
 }
 
 void print_instructions() {
@@ -442,6 +391,7 @@ void print_instructions() {
   Serial.println("3. Place GREEN crystal to enable sword");
   Serial.println("4. Pull the sword to trigger win condition!");
   Serial.println("5. Removing any crystal will reset progress");
+  Serial.println("6. Send 'true' to escaperoom/system/reset to reset game");
   Serial.println("=======================================");
 }
 
@@ -461,20 +411,35 @@ void print_crystal_status() {
   Serial.println("======================");
 }
 
-void handle_status_led() {
-  if (!sequence_in_progress && !all_crystals_complete) {
-    unsigned long current_time = millis();
-    
-    // Blink faster when first four are complete
-    int blink_speed = first_four_complete ? 250 : BLINK_INTERVAL;
-    
-    if (current_time - last_blink_time >= blink_speed) {
-      led_blink_state = !led_blink_state;
-      digitalWrite(LED_BUILTIN, led_blink_state);
-      last_blink_time = current_time;
-    }
+void reset_game_state() {
+  Serial.println("=== RESETTING GAME STATE ===");
+  
+  // Reset crystal states
+  for (int i = 0; i < 5; i++) {
+    crystal_placed[i] = false;
+    crystal_prev_states[i] = false;
+    crystal_debounce_times[i] = 0;
   }
+  
+  // Reset game state variables
+  first_four_complete = false;
+  green_unlocked = false;
+  all_crystals_complete = false;
+  sequence_in_progress = false;
+  first_four_ever_completed = false;
+  
+  // Reset sword state
+  sword_enabled = false;
+  sword_placed = false;
+  sword_prev_state = false;
+  sword_debounce_time = 0;
+  
+  
+  Serial.println("Game state reset to defaults - ready for new game!");
+  print_crystal_status();
 }
+
+
 
 void publish_heartbeat() {
   static unsigned long last_heartbeat = 0;
