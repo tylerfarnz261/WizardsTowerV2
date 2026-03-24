@@ -25,8 +25,8 @@
 #include <HardwareSerial.h>
 
 // WiFi credentials
-const char* ssid = "EscapeRoom_WiFi";
-const char* password = "YourWiFiPassword";
+const char* ssid = "Verizon_V3N3DV";
+const char* password = "tarry4says9nick";
 
 // MQTT settings
 const char* mqtt_server = "192.168.0.194";
@@ -35,18 +35,18 @@ const char* device_id = "cauldron_esp32";
 
 // MQTT topics
 const char* topic_cauldron_solved = "escaperoom/esp32/cauldron/pressed";
+const char* topic_reset = "escaperoom/system/reset";
 
 // Hardware pins
-const int SENSOR_PIN = 2;    // Cauldron sensor input pin
-const int SERIAL_TX = 17;    // Serial TX to sprite player
-const int SERIAL_RX = 16;    // Serial RX from sprite player
+const int SENSOR_PIN = 8;    // Cauldron sensor input pin
+const int SERIAL_TX = 6;    // Serial TX to sprite player
+const int SERIAL_RX = 7;    // Serial RX from sprite player
 
 // Serial communication
 HardwareSerial SpriteSerial(1);  // Use hardware serial port 1
 
-// Sprite player commands
-const String SPRITE_COMMAND_CAULDRON = "PLAY_CAULDRON_SEQUENCE\n";
-const String SPRITE_COMMAND_STOP = "STOP\n";
+// Video file commands (single bytes - NUMERICAL values, not characters)
+const byte VIDEO_CAULDRON_SEQUENCE = 1;  // Cauldron sequence video
 
 // Debounce settings
 const unsigned long DEBOUNCE_DELAY = 50;  // milliseconds
@@ -59,10 +59,10 @@ bool cauldron_was_triggered = false;
 WiFiClient espClient;
 PubSubClient mqtt_client(espClient);
 
-// Status LED (built-in)
-bool led_blink_state = false;
-unsigned long last_blink_time = 0;
-const unsigned long BLINK_INTERVAL = 1000;  // 1 second
+// Sprite player communication
+unsigned long last_sprite_check = 0;
+const unsigned long SPRITE_CHECK_INTERVAL = 100; // Check sprite status every 100ms
+
 
 void setup() {
   Serial.begin(115200);
@@ -73,15 +73,10 @@ void setup() {
   
   // Initialize pins
   pinMode(SENSOR_PIN, INPUT_PULLUP);
-  pinMode(LED_BUILTIN, OUTPUT);
   
   // Initialize sprite player serial communication
   SpriteSerial.begin(9600, SERIAL_8N1, SERIAL_RX, SERIAL_TX);
-  delay(100);
-  
-  // Send a test command to sprite player
-  SpriteSerial.print("HELLO\n");
-  Serial.println("Sent HELLO command to sprite player");
+  delay(500);
   
   // Connect to WiFi
   setup_wifi();
@@ -101,13 +96,10 @@ void loop() {
   }
   mqtt_client.loop();
   
-  // Handle status LED blinking
-  handle_status_led();
-  
   // Read and process sensor input
   process_sensor_input();
   
-  // Handle sprite player serial communication
+  // Handle sprite player communication
   handle_sprite_communication();
   
   // Publish heartbeat periodically
@@ -148,6 +140,11 @@ void reconnect_mqtt() {
     if (mqtt_client.connect(device_id)) {
       Serial.println(" connected");
       
+      // Subscribe to reset topic
+      mqtt_client.subscribe(topic_reset);
+      Serial.print("Subscribed to reset topic: ");
+      Serial.println(topic_reset);
+      
       // Publish online status
       String status_topic = String("escaperoom/status/") + device_id;
       mqtt_client.publish(status_topic.c_str(), "online");
@@ -173,8 +170,12 @@ void mqtt_callback(char* topic, byte* payload, unsigned int length) {
   Serial.print("]: ");
   Serial.println(message);
   
-  // Handle any incoming messages if needed
-  // Could handle remote sprite player commands here
+  // Handle reset command
+  if (String(topic) == topic_reset) {
+    if (message == "reset" || message == "true") {
+      reset_system();
+    }
+  }
 }
 
 void process_sensor_input() {
@@ -205,26 +206,13 @@ void cauldron_triggered() {
   Serial.println("=== CAULDRON SOLVED! ===");
   
   // Send command to sprite player to trigger video
-  send_sprite_command(SPRITE_COMMAND_CAULDRON);
+  play_video(VIDEO_CAULDRON_SEQUENCE);
   
   if (mqtt_client.connected()) {
     // Publish cauldron solved event (tells central controller to unlock dream runes)
     mqtt_client.publish(topic_cauldron_solved, "true");
     Serial.println("Published: Cauldron solved - dream runes will be unlocked!");
-    
-    // Flash LED rapidly to indicate success
-    for (int i = 0; i < 10; i++) {
-      digitalWrite(LED_BUILTIN, HIGH);
-      delay(100);
-      digitalWrite(LED_BUILTIN, LOW);
-      delay(100);
-    }
-    
-    // Keep LED on for a few seconds to show completion
-    digitalWrite(LED_BUILTIN, HIGH);
-    delay(3000);
-    digitalWrite(LED_BUILTIN, LOW);
-    
+
     Serial.println("Cauldron permanently solved until system reset");
     
   } else {
@@ -232,50 +220,60 @@ void cauldron_triggered() {
   }
 }
 
-void send_sprite_command(String command) {
-  Serial.print("Sending sprite command: ");
-  Serial.print(command);
+void play_video(byte video_number) {
+  Serial.print("Sending sprite command for video ");
+  Serial.print(video_number, DEC);
+  Serial.print(" (0x");
+  Serial.print(video_number, HEX);
+  Serial.println(")");
   
-  SpriteSerial.print(command);
+  // Send single byte command to sprite player
+  SpriteSerial.write(video_number);
   
-  // Wait a moment for response
-  delay(100);
+  // Brief delay to allow command processing
+  delay(50);
+}
+
+void reset_system() {
+  Serial.println("=== SYSTEM RESET TRIGGERED ===");
+  Serial.println("Resetting cauldron to original state...");
   
-  // Check for acknowledgment
-  if (SpriteSerial.available()) {
-    String response = SpriteSerial.readString();
-    Serial.print("Sprite player response: ");
-    Serial.println(response);
-  } else {
-    Serial.println("No response from sprite player");
+  // Reset cauldron state
+  cauldron_was_triggered = false;
+  last_debounce_time = 0;
+  last_sensor_state = HIGH;
+  current_sensor_state = HIGH;
+  
+  Serial.println("Cauldron reset complete - ready for activation");
+  
+  // Publish reset confirmation
+  if (mqtt_client.connected()) {
+    String status_topic = String("escaperoom/status/") + device_id;
+    mqtt_client.publish(status_topic.c_str(), "reset_complete");
   }
 }
 
 void handle_sprite_communication() {
-  // Handle any incoming data from sprite player
-  if (SpriteSerial.available()) {
-    String message = SpriteSerial.readString();
-    Serial.print("Sprite player says: ");
-    Serial.println(message);
-    
-    // Could process status messages, completion confirmations, etc.
-    if (message.indexOf("SEQUENCE_COMPLETE") != -1) {
-      Serial.println("Sprite sequence completed successfully!");
+  // Check for sprite player responses periodically
+  unsigned long current_time = millis();
+  
+  if (current_time - last_sprite_check >= SPRITE_CHECK_INTERVAL) {
+    if (SpriteSerial.available()) {
+      while (SpriteSerial.available()) {
+        byte response = SpriteSerial.read();
+        
+        if (response == 0xEE) {
+          Serial.println("Sprite player: End of file reached");
+        } else {
+          Serial.print("Sprite player status: Playing file ");
+          Serial.print(response, DEC);
+          Serial.print(" (0x");
+          Serial.print(response, HEX);
+          Serial.println(")");
+        }
+      }
     }
-  }
-}
-
-void handle_status_led() {
-  // Blink status LED to show system is running
-  // Skip blinking if we just triggered (LED might be on for success indication)
-  if (!cauldron_was_triggered) {
-    unsigned long current_time = millis();
-    
-    if (current_time - last_blink_time >= BLINK_INTERVAL) {
-      led_blink_state = !led_blink_state;
-      digitalWrite(LED_BUILTIN, led_blink_state);
-      last_blink_time = current_time;
-    }
+    last_sprite_check = current_time;
   }
 }
 

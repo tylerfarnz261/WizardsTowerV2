@@ -62,11 +62,6 @@ const unsigned long PARADOX_DURATION = 10000; // 10 seconds for paradox video
 WiFiClient espClient;
 PubSubClient mqtt_client(espClient);
 
-// Status LED (built-in)
-bool led_blink_state = false;
-unsigned long last_blink_time = 0;
-const unsigned long BLINK_INTERVAL = 1000;  // 1 second
-
 // Sprite player communication
 unsigned long last_sprite_check = 0;
 const unsigned long SPRITE_CHECK_INTERVAL = 100; // Check sprite status every 100ms
@@ -77,9 +72,6 @@ void setup() {
   
   Serial.println("=== Window ESP32 Controller ===");
   Serial.println("Initializing...");
-  
-  // Initialize status LED
-  pinMode(LED_BUILTIN, OUTPUT);
   
   // Initialize sprite player serial communication
   SpriteSerial.begin(9600, SERIAL_8N1, SERIAL_RX, SERIAL_TX);
@@ -106,10 +98,7 @@ void loop() {
     reconnect_mqtt();
   }
   mqtt_client.loop();
-  
-  // Handle status LED blinking
-  handle_status_led();
-  
+   
   // Handle sprite player communication
   handle_sprite_communication();
   
@@ -269,16 +258,6 @@ void handle_paradox_timing() {
       // Note: We don't reset in_shadow_realm here because paradox 
       // disables shadow realm toggle permanently in the rune controller
     }
-  }
-}
-
-void handle_status_led() {
-  unsigned long current_time = millis();
-  
-  if (current_time - last_blink_time >= BLINK_INTERVAL) {
-    led_blink_state = !led_blink_state;
-    digitalWrite(LED_BUILTIN, led_blink_state);
-    last_blink_time = current_time;
   }
 }
 

@@ -22,8 +22,8 @@
 #include <HTTPClient.h>
 
 // WiFi credentials
-const char* ssid = "EscapeRoom_WiFi";
-const char* password = "YourWiFiPassword";
+const char* ssid = "Verizon_V3N3DV";
+const char* password = "tarry4says9nick";
 
 // MQTT settings
 const char* mqtt_server = "192.168.0.194";
@@ -31,14 +31,15 @@ const int mqtt_port = 1883;
 const char* device_id = "dials_esp32";
 
 // Audio server settings  
-const char* audio_server_ip = "192.168.1.150";
-const int audio_server_port = 80;
+const char* audio_server_ip = "192.168.1.156";
+const int audio_server_port = 15000;
 
 // MQTT topics
 const char* topic_dials_solved = "escaperoom/esp32/dials/solved";
+const char* topic_reset = "escaperoom/system/reset";
 
 // Hardware pins
-const int SENSOR_PIN = 2;  // Dials completion sensor input pin
+const int SENSOR_PIN = 6;  // Dials completion sensor input pin
 
 // Debounce settings
 const unsigned long DEBOUNCE_DELAY = 50;  // milliseconds
@@ -51,11 +52,6 @@ bool dials_were_solved = false;
 WiFiClient espClient;
 PubSubClient mqtt_client(espClient);
 
-// Status LED (built-in)
-bool led_blink_state = false;
-unsigned long last_blink_time = 0;
-const unsigned long BLINK_INTERVAL = 1000;  // 1 second
-
 void setup() {
   Serial.begin(115200);
   delay(1000);
@@ -65,7 +61,6 @@ void setup() {
   
   // Initialize pins
   pinMode(SENSOR_PIN, INPUT_PULLUP);
-  pinMode(LED_BUILTIN, OUTPUT);
   
   // Connect to WiFi
   setup_wifi();
@@ -84,10 +79,7 @@ void loop() {
     reconnect_mqtt();
   }
   mqtt_client.loop();
-  
-  // Handle status LED blinking
-  handle_status_led();
-  
+
   // Read and process sensor input
   process_sensor_input();
   
@@ -128,6 +120,11 @@ void reconnect_mqtt() {
     if (mqtt_client.connect(device_id)) {
       Serial.println(" connected");
       
+      // Subscribe to reset topic
+      mqtt_client.subscribe(topic_reset);
+      Serial.print("Subscribed to reset topic: ");
+      Serial.println(topic_reset);
+      
       String status_topic = String("escaperoom/status/") + device_id;
       mqtt_client.publish(status_topic.c_str(), "online");
       
@@ -150,6 +147,13 @@ void mqtt_callback(char* topic, byte* payload, unsigned int length) {
   Serial.print(topic);
   Serial.print("]: ");
   Serial.println(message);
+  
+  // Handle reset command
+  if (String(topic) == topic_reset) {
+    if (message == "reset" || message == "true") {
+      reset_system();
+    }
+  }
 }
 
 void process_sensor_input() {
@@ -180,64 +184,31 @@ void dials_solved() {
   Serial.println("=== DIALS PUZZLE SOLVED! ===");
   Serial.println("Treasure chest will unlock!");
   
-  // Trigger dials solved sound
-  trigger_audio_event("dials_solved_sound");
-  
   if (mqtt_client.connected()) {
     mqtt_client.publish(topic_dials_solved, "true");
     Serial.println("Published: Dials solved - treasure chest unlocked");
     
-    // Victory light sequence
-    for (int i = 0; i < 8; i++) {
-      digitalWrite(LED_BUILTIN, HIGH);
-      delay(150);
-      digitalWrite(LED_BUILTIN, LOW);
-      delay(150);
-    }
-    
-    // Keep LED on to show completion
-    digitalWrite(LED_BUILTIN, HIGH);
-    delay(3000);
-    digitalWrite(LED_BUILTIN, LOW);
-    
   } else {
     Serial.println("MQTT not connected - message not sent!");
   }
 }
 
-void trigger_audio_event(String event_name) {
-  if (WiFi.status() == WL_CONNECTED) {
-    HTTPClient http;
-    String url = "http://" + String(audio_server_ip) + "/" + event_name;
-    http.begin(url);
-    
-    int httpResponseCode = http.GET();
-    
-    if (httpResponseCode == 200) {
-      Serial.println("Audio event triggered: " + event_name);
-    } else {
-      Serial.println("Audio request failed: " + String(httpResponseCode));
-    }
-    
-    http.end();
-  } else {
-    Serial.println("WiFi not connected - cannot trigger audio");
-  }
-}
-    Serial.println("MQTT not connected - message not sent!");
-  }
-}
-
-void handle_status_led() {
-  // Blink status LED to show system is running
-  if (!dials_were_solved) {
-    unsigned long current_time = millis();
-    
-    if (current_time - last_blink_time >= BLINK_INTERVAL) {
-      led_blink_state = !led_blink_state;
-      digitalWrite(LED_BUILTIN, led_blink_state);
-      last_blink_time = current_time;
-    }
+void reset_system() {
+  Serial.println("=== SYSTEM RESET TRIGGERED ===");
+  Serial.println("Resetting dials puzzle to original state...");
+  
+  // Reset dials state
+  dials_were_solved = false;
+  last_debounce_time = 0;
+  last_sensor_state = HIGH;
+  current_sensor_state = HIGH;
+  
+  Serial.println("Dials reset complete - ready for solving");
+  
+  // Publish reset confirmation
+  if (mqtt_client.connected()) {
+    String status_topic = String("escaperoom/status/") + device_id;
+    mqtt_client.publish(status_topic.c_str(), "reset_complete");
   }
 }
 
@@ -250,7 +221,7 @@ void publish_heartbeat() {
       String heartbeat_topic = String("escaperoom/heartbeat/") + device_id;
       String heartbeat_data = String("{\"uptime\":") + (current_time / 1000) + 
                              ",\"free_heap\":" + ESP.getFreeHeap() + 
-                             ",\"puzzle_solved\":" + (dials_were_solved ? "true" : "false") + "}";
+                             ",\"dials_solved\":" + (dials_were_solved ? "true" : "false") + "}";
       
       mqtt_client.publish(heartbeat_topic.c_str(), heartbeat_data.c_str());
     }
