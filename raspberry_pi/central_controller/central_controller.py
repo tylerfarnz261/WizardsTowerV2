@@ -129,12 +129,12 @@ class CentralController:
                 led_device.on()  # Start with torch lights ON (HIGH = lights on)
                 self.torch_relays[f'torch_{i}'] = led_device
             
-            # Setup other output pins
-            self.other_devices = {}
-            for output_name, pin_num in self.config['central_controller']['other_outputs'].items():
-                led_device = LED(pin_num)
-                led_device.off()  # Start with outputs OFF
-                self.other_devices[output_name] = led_device
+            # # Setup other output pins
+            # self.other_devices = {}
+            # for output_name, pin_num in self.config['central_controller']['other_outputs'].items():
+            #     led_device = LED(pin_num)
+            #     led_device.off()  # Start with outputs OFF
+            #     self.other_devices[output_name] = led_device
             
             # Setup lighting control pins
             self.lighting_devices = {}
