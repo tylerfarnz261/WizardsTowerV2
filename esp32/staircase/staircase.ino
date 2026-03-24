@@ -24,8 +24,8 @@
 #include <HTTPClient.h>
 
 // WiFi credentials
-const char* ssid = "EscapeRoom_WiFi";
-const char* password = "YourWiFiPassword";
+const char* ssid = "Verizon_V3N3DV";
+const char* password = "tarry4says9nick";
 
 // MQTT settings
 const char* mqtt_server = "192.168.0.194";
@@ -33,11 +33,12 @@ const int mqtt_port = 1883;
 const char* device_id = "staircase_esp32";
 
 // Audio server settings
-const char* audio_server_ip = "192.168.1.150";
-const int audio_server_port = 80;
+const char* audio_server_ip = "192.168.0.156";
+const int audio_server_port = 15000;
 
 // MQTT topics
 const char* topic_staircase_solved = "escaperoom/esp32/staircase/solved";
+const char* topic_reset = "escaperoom/system/reset";
 
 // Hardware pins
 const int BUTTON_PINS[5] = {2, 4, 5, 18, 19};  // 5 stair buttons
@@ -48,29 +49,20 @@ const int PIXELS_PER_STAIR = 16;
 const int TOTAL_PIXELS = 80;  // 5 stairs * 16 pixels each
 const int NUM_STAIRS = 5;
 
-// Color definitions (RGB values)
+// Color definitions (RGB values) - 5 colors plus OFF
 const uint32_t COLORS[] = {
+  0x000000,  // OFF (BLACK)
   0xFF0000,  // RED
   0x00FF00,  // GREEN  
   0x0000FF,  // BLUE
-  0xFF00FF,  // PURPLE/MAGENTA
   0xFFFF00,  // YELLOW
-  0x00FFFF,  // CYAN
-  0xFF8000,  // ORANGE
-  0xFF69B4,  // PINK
-  0xFFFFFF,  // WHITE
-  0x800080,  // PURPLE (different shade)
-  0x00FF80,  // LIME
-  0x000080,  // NAVY
-  0xFFD700,  // GOLD
-  0xC0C0C0,  // SILVER
-  0xCD7F32   // BRONZE
+  0x800080   // PURPLE
 };
 
 const int NUM_COLORS = sizeof(COLORS) / sizeof(COLORS[0]);
 
 // Solution colors for each stair (indices into COLORS array)
-const int SOLUTION_COLORS[5] = {0, 4, 2, 9, 12};  // RED, YELLOW, BLUE, PURPLE, GOLD
+const int SOLUTION_COLORS[5] = {1, 2, 3, 4, 5};  // RED, GREEN, BLUE, YELLOW, PURPLE
 
 // NeoPixel object
 Adafruit_NeoPixel strip(TOTAL_PIXELS, NEOPIXEL_PIN, NEO_GRB + NEO_KHZ800);
@@ -92,11 +84,6 @@ bool puzzle_solved = false;
 WiFiClient espClient;
 PubSubClient mqtt_client(espClient);
 
-// Status LED (built-in)
-bool led_blink_state = false;
-unsigned long last_blink_time = 0;
-const unsigned long BLINK_INTERVAL = 1000;  // 1 second
-
 void setup() {
   Serial.begin(115200);
   delay(1000);
@@ -108,7 +95,6 @@ void setup() {
   for (int i = 0; i < NUM_STAIRS; i++) {
     pinMode(BUTTON_PINS[i], INPUT_PULLUP);
   }
-  pinMode(LED_BUILTIN, OUTPUT);
   
   // Initialize NeoPixel strip
   strip.begin();
@@ -137,9 +123,6 @@ void loop() {
     reconnect_mqtt();
   }
   mqtt_client.loop();
-  
-  // Handle status LED blinking
-  handle_status_led();
   
   // Process button inputs
   process_buttons();
@@ -187,6 +170,10 @@ void reconnect_mqtt() {
       String status_topic = String("escaperoom/status/") + device_id;
       mqtt_client.publish(status_topic.c_str(), "online");
       
+      // Subscribe to reset topic
+      mqtt_client.subscribe(topic_reset);
+      Serial.println("Subscribed to reset topic");
+      
     } else {
       Serial.print(" failed, rc=");
       Serial.print(mqtt_client.state());
@@ -206,6 +193,12 @@ void mqtt_callback(char* topic, byte* payload, unsigned int length) {
   Serial.print(topic);
   Serial.print("]: ");
   Serial.println(message);
+  
+  // Handle reset command
+  if (String(topic) == topic_reset && message.equalsIgnoreCase("true")) {
+    Serial.println("RESET COMMAND RECEIVED - Resetting to default state");
+    reset_game_state();
+  }
 }
 
 void process_buttons() {
@@ -236,18 +229,21 @@ void button_pressed(int stair_index) {
   Serial.print("Stair ");
   Serial.print(stair_index + 1);
   Serial.print(" button pressed - ");
+
   
-  // Trigger step sound effect
-  trigger_audio_event("step_sound");
-  
-  // Cycle to next color (max 3 colors as specified)
-  current_stair_colors[stair_index] = (current_stair_colors[stair_index] + 1) % 3;
+  // Cycle to next color (now 6 options including OFF)
+  current_stair_colors[stair_index] = (current_stair_colors[stair_index] + 1) % 6;
   
   Serial.print("Color index: ");
   Serial.println(current_stair_colors[stair_index]);
   
   // Update the stair display
   update_stair(stair_index);
+
+  // Trigger random stair sound effect (1-7)
+  int random_sound = random(1, 8);  // random(1, 8) gives 1-7
+  String event_name = "stair_" + String(random_sound);
+  trigger_audio_event(event_name);
   
   // Mark stair as active
   stair_active[stair_index] = true;
@@ -256,7 +252,7 @@ void button_pressed(int stair_index) {
 void trigger_audio_event(String event_name) {
   if (WiFi.status() == WL_CONNECTED) {
     HTTPClient http;
-    String url = "http://" + String(audio_server_ip) + "/" + event_name;
+    String url = "http://" + String(audio_server_ip) + ":15000/" + event_name;
     http.begin(url);
     
     int httpResponseCode = http.GET();
@@ -320,8 +316,6 @@ void staircase_solved() {
   // Trigger staircase completion sound
   trigger_audio_event("staircase_victory");
   
-  // Celebration light show
-  celebration_sequence();
   
   if (mqtt_client.connected()) {
     mqtt_client.publish(topic_staircase_solved, "true");
@@ -331,38 +325,10 @@ void staircase_solved() {
   }
 }
 
-void celebration_sequence() {
-  // Flash all stairs in rainbow colors
-  for (int cycle = 0; cycle < 3; cycle++) {
-    for (int color_idx = 0; color_idx < 5; color_idx++) {
-      for (int pixel = 0; pixel < TOTAL_PIXELS; pixel++) {
-        strip.setPixelColor(pixel, COLORS[color_idx]);
-      }
-      strip.show();
-      delay(200);
-    }
-  }
-  
-  // Return to solution colors
-  for (int i = 0; i < NUM_STAIRS; i++) {
-    current_stair_colors[i] = SOLUTION_COLORS[i];
-    update_stair(i);
-  }
-  
-  // Flash LED to indicate success
-  for (int i = 0; i < 10; i++) {
-    digitalWrite(LED_BUILTIN, HIGH);
-    delay(100);
-    digitalWrite(LED_BUILTIN, LOW);
-    delay(100);
-  }
-}
 
 void print_solution() {
   Serial.println("=== SOLUTION COLORS ===");
-  const char* color_names[] = {"RED", "GREEN", "BLUE", "MAGENTA", "YELLOW", 
-                               "CYAN", "ORANGE", "PINK", "WHITE", "PURPLE",
-                               "LIME", "NAVY", "GOLD", "SILVER", "BRONZE"};
+  const char* color_names[] = {"OFF", "RED", "GREEN", "BLUE", "YELLOW", "PURPLE"};
   
   for (int i = 0; i < NUM_STAIRS; i++) {
     Serial.print("Stair ");
@@ -373,17 +339,31 @@ void print_solution() {
   Serial.println("======================");
 }
 
-void handle_status_led() {
-  if (!puzzle_solved) {
-    unsigned long current_time = millis();
-    
-    if (current_time - last_blink_time >= BLINK_INTERVAL) {
-      led_blink_state = !led_blink_state;
-      digitalWrite(LED_BUILTIN, led_blink_state);
-      last_blink_time = current_time;
-    }
+void reset_game_state() {
+  Serial.println("=== RESETTING GAME STATE ===");
+  
+  // Turn off all NeoPixels
+  strip.clear();
+  strip.show();
+  
+  // Reset all game states
+  puzzle_solved = false;
+  
+  // Reset stair states
+  for (int i = 0; i < NUM_STAIRS; i++) {
+    current_stair_colors[i] = 0;  // Start with first color (OFF)
+    stair_active[i] = false;
+    button_states[i] = HIGH;
+    last_button_states[i] = HIGH;
+    last_debounce_times[i] = 0;
   }
+  
+  // Show initial pattern (all stairs with first color)
+  update_all_stairs();
+  
+  Serial.println("Game state reset to defaults - ready for new game!");
 }
+
 
 void publish_heartbeat() {
   static unsigned long last_heartbeat = 0;

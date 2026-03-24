@@ -192,7 +192,7 @@ void mqtt_callback(char* topic, byte* payload, unsigned int length) {
   Serial.println(message);
   
   // Handle reset command
-  if (String(topic) == topic_reset && message.toLowerCase() == "true") {
+  if (String(topic) == topic_reset && message.equalsIgnoreCase("true")) {
     Serial.println("RESET COMMAND RECEIVED - Resetting to default state");
     reset_game_state();
   }
