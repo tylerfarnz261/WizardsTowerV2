@@ -22,8 +22,8 @@
 #include <HTTPClient.h>
 
 // WiFi credentials
-const char* ssid = "EscapeRoom_WiFi";
-const char* password = "YourWiFiPassword";
+const char* ssid = "Verizon_V3N3DV";
+const char* password = "tarry4says9nick";
 
 // MQTT settings
 const char* mqtt_server = "192.168.0.194";
@@ -31,14 +31,15 @@ const int mqtt_port = 1883;
 const char* device_id = "cross_esp32";
 
 // Audio server settings
-const char* audio_server_ip = "192.168.1.150";
-const int audio_server_port = 80;
+const char* audio_server_ip = "192.168.0.156";
+const int audio_server_port = 15000;
 
 // MQTT topics
 const char* topic_cross_pressed = "escaperoom/esp32/cross/pressed";
+const char* topic_reset = "escaperoom/system/reset";
 
 // Hardware pins
-const int BUTTON_PIN = 2;  // Cross button input pin
+const int SENSOR_PIN = 2;  // Cross button input pin
 
 // Debounce settings
 const unsigned long DEBOUNCE_DELAY = 50;  // milliseconds
@@ -51,11 +52,6 @@ bool button_was_pressed = false;
 WiFiClient espClient;
 PubSubClient mqtt_client(espClient);
 
-// Status LED (built-in)
-bool led_blink_state = false;
-unsigned long last_blink_time = 0;
-const unsigned long BLINK_INTERVAL = 1000;  // 1 second
-
 void setup() {
   Serial.begin(115200);
   delay(1000);
@@ -64,9 +60,8 @@ void setup() {
   Serial.println("Initializing...");
   
   // Initialize pins
-  pinMode(BUTTON_PIN, INPUT_PULLUP);
-  pinMode(LED_BUILTIN, OUTPUT);
-  
+  pinMode(SENSOR_PIN, INPUT_PULLUP);
+
   // Connect to WiFi
   setup_wifi();
   
@@ -84,9 +79,6 @@ void loop() {
     reconnect_mqtt();
   }
   mqtt_client.loop();
-  
-  // Handle status LED blinking
-  handle_status_led();
   
   // Read and process button input
   process_button_input();
@@ -133,6 +125,10 @@ void reconnect_mqtt() {
       String status_topic = String("escaperoom/status/") + device_id;
       mqtt_client.publish(status_topic.c_str(), "online");
       
+      // Subscribe to reset topic
+      mqtt_client.subscribe(topic_reset);
+      Serial.println("Subscribed to reset topic");
+      
     } else {
       Serial.print(" failed, rc=");
       Serial.print(mqtt_client.state());
@@ -154,13 +150,16 @@ void mqtt_callback(char* topic, byte* payload, unsigned int length) {
   Serial.print("]: ");
   Serial.println(message);
   
-  // Handle any incoming messages if needed
-  // This device mainly publishes, doesn't usually receive
+  // Handle reset command
+  if (String(topic) == topic_reset && message.equalsIgnoreCase("true")) {
+    Serial.println("RESET COMMAND RECEIVED - Resetting button state");
+    reset_button_state();
+  }
 }
 
 void process_button_input() {
   // Read the button (LOW when pressed with pull-up)
-  bool reading = digitalRead(BUTTON_PIN);
+  bool reading = digitalRead(SENSOR_PIN);
   
   // Handle debouncing
   if (reading != last_button_state) {
@@ -190,24 +189,28 @@ void process_button_input() {
 void button_pressed() {
   Serial.println("=== CROSS BUTTON PRESSED! ===");
   
-  // Trigger cross/purple crystal sound
-  trigger_audio_event("cross_placed_sound");
-  
   // Publish MQTT message
   if (mqtt_client.connected()) {
     mqtt_client.publish(topic_cross_pressed, "true");
     Serial.println("Published: Cross button pressed");
     
-    // Flash LED rapidly to indicate success
-    for (int i = 0; i < 6; i++) {
-      digitalWrite(LED_BUILTIN, HIGH);
-      delay(100);
-      digitalWrite(LED_BUILTIN, LOW);
-      delay(100);
-    }
   } else {
     Serial.println("MQTT not connected - message not sent!");
   }
+}
+
+void reset_button_state() {
+  Serial.println("=== RESETTING BUTTON STATE ===");
+  
+  // Reset the button pressed flag so it can be triggered again
+  button_was_pressed = false;
+  
+  // Reset button states
+  last_button_state = HIGH;
+  current_button_state = HIGH;
+  last_debounce_time = 0;
+  
+  Serial.println("Button state reset - ready for new game!");
 }
 
 void trigger_audio_event(String event_name) {
@@ -227,17 +230,6 @@ void trigger_audio_event(String event_name) {
     http.end();
   } else {
     Serial.println("WiFi not connected - cannot trigger audio");
-  }
-}
-
-void handle_status_led() {
-  // Blink status LED to show system is running
-  unsigned long current_time = millis();
-  
-  if (current_time - last_blink_time >= BLINK_INTERVAL) {
-    led_blink_state = !led_blink_state;
-    digitalWrite(LED_BUILTIN, led_blink_state);
-    last_blink_time = current_time;
   }
 }
 

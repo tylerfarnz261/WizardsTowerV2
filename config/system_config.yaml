@@ -80,9 +80,9 @@ rune_controller:
 central_controller:
   # GPIO pin mappings for maglocks (using Pi GPIO pins)
   maglocks:
-    paradox_compartment: 2
-    wand_cabinet: 3
-    purple_crystal_compartment: 4
+    paradox_compartment: 8
+    wand_cabinet: 7
+    purple_crystal_compartment: 12
     rat_cage: 17
     rat_trap_door: 27
     fireplace_mantle: 22
@@ -98,12 +98,6 @@ central_controller:
     torch_3: 18  # GPIO 18 - Torch 3 light relay
     torch_4: 23  # GPIO 23 - Torch 4 light relay
     torch_5: 24  # GPIO 24 - Torch 5 light relay
-  
-  # GPIO pins for other outputs
-  other_outputs:
-    relay_2: 8   # General purpose relay
-    relay_3: 7   # General purpose relay
-    relay_4: 12  # General purpose relay
   
   # GPIO pins for lighting control
   lighting_outputs:

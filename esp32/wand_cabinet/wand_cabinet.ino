@@ -22,8 +22,8 @@
 #include <HTTPClient.h>
 
 // WiFi credentials
-const char* ssid = "EscapeRoom_WiFi";
-const char* password = "YourWiFiPassword";
+const char* ssid = "Verizon_V3N3DV";
+const char* password = "tarry4says9nick";
 
 // MQTT settings
 const char* mqtt_server = "192.168.0.194";
@@ -31,14 +31,15 @@ const int mqtt_port = 1883;
 const char* device_id = "wand_cabinet_esp32";
 
 // Audio server settings  
-const char* audio_server_ip = "192.168.1.150";
-const int audio_server_port = 80;
+const char* audio_server_ip = "192.168.0.156";
+const int audio_server_port = 15000;
 
 // MQTT topics
 const char* topic_wand_opened = "escaperoom/esp32/wand_cabinet/opened";
+const char* topic_reset = "escaperoom/system/reset";
 
 // Hardware pins
-const int SENSOR_PIN = 2;  // Door sensor input pin
+const int SENSOR_PIN = 6;  // Door sensor input pin
 
 // Debounce settings
 const unsigned long DEBOUNCE_DELAY = 50;  // milliseconds
@@ -51,12 +52,6 @@ bool cabinet_was_opened = false;
 WiFiClient espClient;
 PubSubClient mqtt_client(espClient);
 
-// Status LED (built-in)
-const int LED_PIN = 2;
-bool led_blink_state = false;
-unsigned long last_blink_time = 0;
-const unsigned long BLINK_INTERVAL = 1000;  // 1 second
-
 void setup() {
   Serial.begin(115200);
   delay(1000);
@@ -66,7 +61,6 @@ void setup() {
   
   // Initialize pins
   pinMode(SENSOR_PIN, INPUT_PULLUP);
-  pinMode(LED_BUILTIN, OUTPUT);
   
   // Connect to WiFi
   setup_wifi();
@@ -85,9 +79,6 @@ void loop() {
     reconnect_mqtt();
   }
   mqtt_client.loop();
-  
-  // Handle status LED blinking
-  handle_status_led();
   
   // Read and process sensor input
   process_sensor_input();
@@ -131,6 +122,10 @@ void reconnect_mqtt() {
       String status_topic = String("escaperoom/status/") + device_id;
       mqtt_client.publish(status_topic.c_str(), "online");
       
+      // Subscribe to reset topic
+      mqtt_client.subscribe(topic_reset);
+      Serial.println("Subscribed to reset topic");
+      
     } else {
       Serial.print(" failed, rc=");
       Serial.print(mqtt_client.state());
@@ -152,8 +147,11 @@ void mqtt_callback(char* topic, byte* payload, unsigned int length) {
   Serial.print("]: ");
   Serial.println(message);
   
-  // Handle any incoming messages if needed
-  // (This device mainly publishes, doesn't usually receive)
+  // Handle reset command
+  if (String(topic) == topic_reset && message.equalsIgnoreCase("true")) {
+    Serial.println("RESET COMMAND RECEIVED - Resetting cabinet state");
+    reset_cabinet_state();
+  }
 }
 
 void process_sensor_input() {
@@ -183,56 +181,28 @@ void process_sensor_input() {
 void cabinet_opened() {
   Serial.println("=== WAND CABINET OPENED! ===");
   
-  // Trigger wand cabinet sound
-  trigger_audio_event("wand_taken_sound");
-  
   // Publish MQTT message
   if (mqtt_client.connected()) {
     mqtt_client.publish(topic_wand_opened, "true");
     Serial.println("Published: Wand cabinet opened");
     
-    // Flash LED rapidly to indicate success
-    for (int i = 0; i < 6; i++) {
-      digitalWrite(LED_BUILTIN, HIGH);
-      delay(100);
-      digitalWrite(LED_BUILTIN, LOW);
-      delay(100);
-    }
   } else {
     Serial.println("MQTT not connected - message not sent!");
   }
 }
 
-void trigger_audio_event(String event_name) {
-  if (WiFi.status() == WL_CONNECTED) {
-    HTTPClient http;
-    String url = "http://" + String(audio_server_ip) + "/" + event_name;
-    http.begin(url);
-    
-    int httpResponseCode = http.GET();
-    
-    if (httpResponseCode == 200) {
-      Serial.println("Audio event triggered: " + event_name);
-    } else {
-      Serial.println("Audio request failed: " + String(httpResponseCode));
-    }
-    
-    http.end();
-  } else {
-    Serial.println("WiFi not connected - cannot trigger audio");
-  }
-}
-}
-
-void handle_status_led() {
-  // Blink status LED to show system is running
-  unsigned long current_time = millis();
+void reset_cabinet_state() {
+  Serial.println("=== RESETTING CABINET STATE ===");
   
-  if (current_time - last_blink_time >= BLINK_INTERVAL) {
-    led_blink_state = !led_blink_state;
-    digitalWrite(LED_BUILTIN, led_blink_state);
-    last_blink_time = current_time;
-  }
+  // Reset the cabinet opened flag so it can be triggered again
+  cabinet_was_opened = false;
+  
+  // Reset sensor states
+  last_sensor_state = HIGH;
+  current_sensor_state = HIGH;
+  last_debounce_time = 0;
+  
+  Serial.println("Cabinet state reset - ready for new game!");
 }
 
 void publish_heartbeat() {
