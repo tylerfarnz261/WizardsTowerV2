@@ -77,7 +77,9 @@ class CentralController:
                 'cauldron': False,
                 'dials': False,
                 'staircase': False,
-                'watcher': False
+                'watcher': False,
+                'paradox_compartment': False,
+                'sword': False
             },
             'maglock_states': {name: False for name in self.config['central_controller']['maglocks'].keys()}
         }
@@ -701,8 +703,6 @@ class CentralController:
                     'paradox_compartment': self.config['esp32']['crystals_first_four'],
                     'sword': self.config['esp32']['crystals_all_placed'],
                     'cauldron': self.config['esp32']['cauldron']
-                    
-
                 }
                 
                 if puzzle_name in topic_map:
