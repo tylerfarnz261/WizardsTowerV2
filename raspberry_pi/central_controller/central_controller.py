@@ -698,6 +698,11 @@ class CentralController:
                     'dials': self.config['esp32']['dials'],
                     'staircase': self.config['esp32']['staircase'],
                     'watcher': self.config['esp32']['watcher'],
+                    'paradox_compartment': self.config['esp32']['crystals_first_four'],
+                    'sword': self.config['esp32']['crystals_all_placed'],
+                    'cauldron': self.config['esp32']['cauldron']
+                    
+
                 }
                 
                 if puzzle_name in topic_map:
