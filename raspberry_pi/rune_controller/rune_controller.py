@@ -575,7 +575,7 @@ class RuneController:
             
             elif rune_name == 'dream_rat_cage':
 
-                time.Sleep(12)
+                time.sleep(12)
                 self._send_rat_cage_activation()
                 actions.append("Playing audio then activating rat cage rune")
                 
