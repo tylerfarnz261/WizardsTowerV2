@@ -383,6 +383,23 @@ class RuneController:
             except Exception as e:
                 logger.error(f"Error manually triggering rune {rune_name}: {e}")
                 return jsonify({'status': 'error', 'message': str(e)}), 500
+        
+        @self.flask_app.route('/rune/<rune_name>/unlock', methods=['POST'])
+        def unlock_rune_endpoint(rune_name):
+            """Manually unlock a rune type (for testing) - sets unlock state."""
+            try:
+                # Process the manual rune unlock
+                result = self._process_rune_unlock(rune_name)
+                
+                return jsonify({
+                    'status': 'success',
+                    'rune': rune_name,
+                    'actions': result['actions']
+                })
+                
+            except Exception as e:
+                logger.error(f"Error manually unlocking rune {rune_name}: {e}")
+                return jsonify({'status': 'error', 'message': str(e)}), 500
     
     def _process_spell_success(self, rune_name: str) -> Dict[str, Any]:
         """Process spell success for specific rune type."""
@@ -634,6 +651,51 @@ class RuneController:
             
         except Exception as e:
             logger.error(f"Error processing manual trigger for {rune_name}: {e}")
+            raise
+    
+    def _process_rune_unlock(self, rune_name: str) -> Dict[str, Any]:
+        """Process manual rune unlock - sets unlock state for rune types."""
+        actions = []
+        
+        try:
+            # Dream runes unlock
+            if rune_name == 'dream' or rune_name.startswith('dream_'):
+                self.game_state['dream_runes_unlocked'] = True
+                actions.append("Dream runes unlocked")
+                logger.info("Dream runes manually unlocked")
+            
+            # Mirror runes unlock
+            elif rune_name == 'mirror' or rune_name.startswith('mirror_'):
+                self.game_state['mirror_runes_unlocked'] = True
+                actions.append("Mirror runes unlocked")
+                logger.info("Mirror runes manually unlocked")
+            
+            # Paradox rune unlock
+            elif rune_name == 'paradox':
+                self.game_state['paradox_rune_unlocked'] = True
+                actions.append("Paradox rune unlocked")
+                logger.info("Paradox rune manually unlocked")
+            
+            # Special unlock: Enable all runes system
+            elif rune_name == 'system' or rune_name == 'all':
+                self.runes_enabled = True
+                actions.append("Rune system enabled (wand cabinet bypass)")
+                logger.info("Rune system manually enabled - bypassed wand cabinet requirement")
+            
+            # Add more unlock types here as needed for future expansion
+            # elif rune_name == 'some_other_category':
+            #     # Handle other unlock types
+            #     pass
+            
+            else:
+                actions.append(f"Unknown unlock type: {rune_name}")
+                logger.warning(f"Unknown unlock type requested: {rune_name}")
+            
+            logger.info(f"Processed manual unlock for {rune_name}: {actions}")
+            return {'rune': rune_name, 'actions': actions}
+            
+        except Exception as e:
+            logger.error(f"Error processing manual unlock for {rune_name}: {e}")
             raise
     
     def _activate_owl_with_audio(self):
