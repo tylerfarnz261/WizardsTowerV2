@@ -697,7 +697,7 @@ class CentralController:
                     'cheese': self.config['esp32']['cheese'],
                     'dials': self.config['esp32']['dials'],
                     'staircase': self.config['esp32']['staircase'],
-                    'watchers': self.config['esp32']['watcher'],
+                    'watcher': self.config['esp32']['watcher'],
                 }
                 
                 if puzzle_name in topic_map:
