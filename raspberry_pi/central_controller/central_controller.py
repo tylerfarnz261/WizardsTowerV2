@@ -705,6 +705,46 @@ class CentralController:
                     return jsonify({'status': 'success', 'puzzle': puzzle_name, 'solved': True})
             
             return jsonify({'status': 'error', 'message': 'Invalid puzzle name'}), 400
+        
+        @self.flask_app.route('/torches/solve', methods=['POST'])
+        def solve_torches_endpoint():
+            """Manually trigger torch puzzle solution (for testing)."""
+            try:
+                if self.game_state['torch_puzzle_solved']:
+                    return jsonify({
+                        'status': 'info', 
+                        'message': 'Torch puzzle already solved',
+                        'solved': True
+                    })
+                
+                logger.info("🔥 MANUALLY TRIGGERING TORCH PUZZLE SOLUTION")
+                
+                # Play torches solved audio
+                self._request_audio_play('torches_solved')
+                time.sleep(6)  # Wait for audio
+                
+                # Mark puzzle as solved
+                self.game_state['torch_puzzle_solved'] = True
+                
+                # Unlock fireplace mantle
+                self._unlock_maglock('fireplace_mantle')
+                
+                # Tell rune controller to disable torch runes
+                self._publish_mqtt(self.config['runes']['torch_runes_disable'], 'true')
+                
+                return jsonify({
+                    'status': 'success', 
+                    'message': 'Torch puzzle manually solved',
+                    'actions': [
+                        'Played torches_solved audio',
+                        'Unlocked fireplace_mantle',
+                        'Disabled torch fire runes'
+                    ]
+                })
+                
+            except Exception as e:
+                logger.error(f"Error manually solving torch puzzle: {e}")
+                return jsonify({'status': 'error', 'message': str(e)}), 500
     
     def _start_background_threads(self):
         """Start background monitoring threads."""
