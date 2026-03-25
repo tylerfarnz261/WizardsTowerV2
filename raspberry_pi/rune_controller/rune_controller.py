@@ -420,7 +420,10 @@ class RuneController:
                     actions.append("Activated owl with audio - MIRROR RUNES UNLOCKED!")
                     logger.info("Owl rune completed - Mirror runes are now unlocked!")
                 else:
-                    actions.append("Dream rune locked - cauldron not solved")
+                    # FIZZLE: Dream rune is locked
+                    self._request_audio_play('rune_fizzle')  # Optional fizzle sound
+                    actions.append("Dream rune fizzled - cauldron not solved yet")
+                    logger.info(f"Dream rune {rune_name} fizzled - cauldron not solved")
             
             # Dream rune for rat cage
             elif rune_name == 'dream_rat_cage':
@@ -433,7 +436,10 @@ class RuneController:
                     actions.append("Rat rune permanently disabled")
                     logger.info("Rat rune disabled permanently after successful casting")
                 else:
-                    actions.append("Dream rune locked - cauldron not solved")
+                    # FIZZLE: Dream rune is locked
+                    self._request_audio_play('rune_fizzle')  # Optional fizzle sound
+                    actions.append("Dream rune fizzled - cauldron not solved yet")
+                    logger.info(f"Dream rune {rune_name} fizzled - cauldron not solved")
             
             # Mirror runes
             elif rune_name in ['mirror_1', 'mirror_2']:
@@ -455,7 +461,10 @@ class RuneController:
                         actions.append("Owl rune permanently disabled - mirror knowledge used")
                         logger.info("Owl rune disabled permanently - mirror spell knowledge utilized")
                 else:
-                    actions.append("Mirror runes locked - spotlight rune not completed")
+                    # FIZZLE: Mirror rune is locked
+                    self._request_audio_play('rune_fizzle')  # Optional fizzle sound
+                    actions.append("Mirror rune fizzled - owl rune not completed yet")
+                    logger.info(f"Mirror rune {rune_name} fizzled - owl not completed")
             
             # Shadow realm rune - Toggle between shadow realm and normal realm
             elif rune_name == 'shadow_realm':
@@ -525,7 +534,10 @@ class RuneController:
                     
                     actions.append("Activated paradox sprite players")
                 else:
-                    actions.append("Paradox rune locked - first four crystals not placed")
+                    # FIZZLE: Paradox rune is locked
+                    self._request_audio_play('rune_fizzle')  # Optional fizzle sound
+                    actions.append("Paradox rune fizzled - first four crystals not placed yet")
+                    logger.info(f"Paradox rune fizzled - first four crystals not placed")
             
             logger.info(f"Processed spell success for {rune_name}: {actions}")
             return {'rune': rune_name, 'actions': actions}
@@ -927,22 +939,11 @@ class RuneController:
                 logger.info(f"Mirror 2 rune {rune_name} press ignored - mirror 2 already activated")
                 return
             
-            # Check if dream runes are unlocked
-            if rune_name.startswith('dream_') and not self.game_state['dream_runes_unlocked']:
-                logger.info(f"Dream rune {rune_name} press ignored - cauldron not solved")
-                return
+            # REMOVED: Early return checks for locked runes - allow them to be activated but fizzle during spell_success
+            # Dream runes, Mirror runes, and Paradox rune can now be pressed even when locked
+            # They will fizzle out during spell_success if still locked
             
-            # Check if mirror runes are unlocked
-            if rune_name.startswith('mirror_') and not self.game_state['mirror_runes_unlocked']:
-                logger.info(f"Mirror rune {rune_name} press ignored - owl rune not completed")
-                return
-            
-            # Check if paradox rune is unlocked
-            if rune_name == 'paradox' and not self.game_state['paradox_rune_unlocked']:
-                logger.info(f"Paradox rune press ignored - first four crystals not placed")
-                return
-            
-            # Activate the rune
+            # Activate the rune (regardless of lock status - let it fizzle during spell_success if locked)
             self.active_rune = rune_name
             self.active_rune_start_time = datetime.now()
             
