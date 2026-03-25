@@ -584,6 +584,28 @@ class RuneController:
                 actions.append("Rat rune permanently disabled")
                 logger.info("Rat rune disabled permanently after successful casting")
 
+            elif rune_name == 'shadow_realm':
+                # For manual trigger, just toggle shadow realm effects without checking toggle state
+                if not self.game_state['in_shadow_realm']:
+                    # Activate shadow realm effects
+                    self._publish_mqtt(self.config['lighting']['blacklights'], 'true')
+                    self._publish_mqtt(self.config['sprite_players']['shadow_realm'], 'activate')
+                    self.game_state['in_shadow_realm'] = True
+                    
+                    # Disable all other runes while in shadow realm
+                    self._disable_runes_for_shadow_realm()
+                    actions.append("Manually activated shadow realm - blacklights on and other runes disabled")
+                    
+                else:
+                    # Deactivate shadow realm effects
+                    self._publish_mqtt(self.config['lighting']['blacklights'], 'false')
+                    self._publish_mqtt(self.config['sprite_players']['shadow_realm'], 'deactivate')
+                    self.game_state['in_shadow_realm'] = False
+                    
+                    # Reset torch states to default ON (unless already solved)
+                    if not self.game_state.get('torch_puzzle_solved', False):
+                        self._reset_torches_to_default()
+
 
             
             # Add more rune types here as needed for future expansion
