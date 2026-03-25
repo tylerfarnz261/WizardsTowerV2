@@ -719,8 +719,9 @@ class CentralController:
                 
                 logger.info("🔥 MANUALLY TRIGGERING TORCH PUZZLE SOLUTION")
                 
-                # Play torches solved audio
-                self._request_audio_play('torches_solved')
+                # Play torches solved audio - This needs to be handled on HOUDINI side so there is no delay
+                #Custom action should be a combo event that triggers this webrequest and plays a sound
+                # self._request_audio_play('torches_solved')
                 time.sleep(6)  # Wait for audio
                 
                 # Mark puzzle as solved
