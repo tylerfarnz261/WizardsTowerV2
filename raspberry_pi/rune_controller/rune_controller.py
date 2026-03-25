@@ -366,6 +366,23 @@ class RuneController:
                 'mirror_2_disabled': False
             }
             return jsonify({'status': 'success', 'message': 'System reset'})
+        
+        @self.flask_app.route('/rune/<rune_name>/trigger', methods=['POST'])
+        def trigger_rune_endpoint(rune_name):
+            """Manually trigger a rune (for testing) - bypasses unlock checks."""
+            try:
+                # Process the manual rune trigger
+                result = self._process_manual_rune_trigger(rune_name)
+                
+                return jsonify({
+                    'status': 'success',
+                    'rune': rune_name,
+                    'actions': result['actions']
+                })
+                
+            except Exception as e:
+                logger.error(f"Error manually triggering rune {rune_name}: {e}")
+                return jsonify({'status': 'error', 'message': str(e)}), 500
     
     def _process_spell_success(self, rune_name: str) -> Dict[str, Any]:
         """Process spell success for specific rune type."""
@@ -515,6 +532,74 @@ class RuneController:
             
         except Exception as e:
             logger.error(f"Error processing spell success for {rune_name}: {e}")
+            raise
+    
+    def _process_manual_rune_trigger(self, rune_name: str) -> Dict[str, Any]:
+        """Process manual rune trigger - bypasses unlock checks for testing."""
+        actions = []
+        
+        try:
+            # Mirror runes - bypass unlock checks
+            if rune_name in ['mirror_1', 'mirror_2']:
+                mirror_num = rune_name.split('_')[1]
+                backlight_topic = self.config['lighting'][f'mirror_backlight_{mirror_num}']
+                
+                # TAKE CARE OF AUDIO IN HOUDINI
+                #self._request_audio_play('mirror')
+                #actions.append(f"Played mirror audio")
+                
+                # Activate mirror backlight
+                self._publish_mqtt(backlight_topic, 'true')
+                actions.append(f"Activated mirror {mirror_num} backlight")
+                
+                # Disable only this specific mirror rune after successful casting
+                self.game_state[f'{rune_name}_disabled'] = True
+                actions.append(f"Mirror {mirror_num} rune permanently disabled")
+                logger.info(f"Mirror {mirror_num} rune disabled permanently after manual trigger")
+                
+                # Permanently disable owl rune after successful mirror cast (if not already disabled)
+                if not self.game_state['owl_disabled']:
+                    self.game_state['owl_disabled'] = True
+                    actions.append("Owl rune permanently disabled - mirror knowledge used")
+                    logger.info("Owl rune disabled permanently - mirror spell knowledge utilized")
+
+            elif rune_name == 'fire_fireplace':
+                
+                self._publish_mqtt(self.config['runes']['fire_fireplace'], 'true')  # Publish to rune topic
+                actions.append("Fire fireplace rune activated - sent to central controller")
+                
+                # Deactivate fireplace rune after successful casting
+                self.game_state['fireplace_rune_disabled'] = True
+                actions.append("Fireplace rune permanently disabled")
+                logger.info("Fireplace rune disabled permanently after successful casting")
+            
+            elif rune_name == 'dream_rat_cage':
+
+                time.Sleep(12)
+                self._send_rat_cage_activation()
+                actions.append("Playing audio then activating rat cage rune")
+                
+                # Deactivate rat rune after successful casting
+                self.game_state['rat_rune_disabled'] = True
+                actions.append("Rat rune permanently disabled")
+                logger.info("Rat rune disabled permanently after successful casting")
+
+
+            
+            # Add more rune types here as needed for future expansion
+            # elif rune_name == 'some_other_rune':
+            #     # Handle other rune manual triggers
+            #     pass
+            
+            else:
+                actions.append(f"Manual trigger not implemented for rune: {rune_name}")
+                logger.warning(f"Manual trigger requested for unsupported rune: {rune_name}")
+            
+            logger.info(f"Processed manual trigger for {rune_name}: {actions}")
+            return {'rune': rune_name, 'actions': actions}
+            
+        except Exception as e:
+            logger.error(f"Error processing manual trigger for {rune_name}: {e}")
             raise
     
     def _activate_owl_with_audio(self):
