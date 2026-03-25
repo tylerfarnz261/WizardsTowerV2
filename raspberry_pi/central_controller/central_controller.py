@@ -550,6 +550,11 @@ class CentralController:
             # Reset torch relays to ON (lights on)
             for torch_key, relay in self.torch_relays.items():
                 relay.on()  # Turn torch lights ON
+            
+            # Reset all lighting devices to OFF (default state)
+            for lighting_name, device in self.lighting_devices.items():
+                device.off()  # Turn lighting OFF (blacklights, spotlights, mirror backlights)
+                logger.info(f"Reset {lighting_name} to OFF")
                 
             # Publish reset signal to all systems (but not to self to avoid loop)
             self._publish_mqtt(self.config['system']['reset_game'], 'true')
