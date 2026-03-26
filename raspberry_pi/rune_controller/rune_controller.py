@@ -21,6 +21,9 @@ Hardware:
 Author: Wizards Control System
 """
 #TODO Rune fizzle noise on timeout
+#TODO turn torch runes off after being solved
+#TODO Turn owl rune off after either mirror activation
+#TODO Audio activation when paradox first pressed
 import time
 import threading
 import logging
@@ -229,6 +232,12 @@ class RuneController:
                 if payload.lower() == 'true':
                     self.game_state['torch_runes_disabled'] = True
                     self.game_state['torch_puzzle_solved'] = True  # Track that torch puzzle is solved
+                    
+                    # Update all torch rune lights to OFF state since they're now permanently disabled
+                    for rune_name in self.rune_lights.keys():
+                        if rune_name.startswith('fire_torch_'):
+                            self._set_rune_light_to_default_state(rune_name)
+                    
                     logger.info("🔥 Torch runes disabled - puzzle solved by central controller!")
             
             elif topic == self.config['esp32']['cauldron']:
