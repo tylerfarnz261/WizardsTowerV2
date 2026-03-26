@@ -20,7 +20,7 @@ Hardware:
 
 Author: Wizards Control System
 """
-#TODO Paradox rune, final puzzle, and 5th crystal placed squence
+#TODO Rune fizzle noise on timeout
 import time
 import threading
 import logging
@@ -240,6 +240,11 @@ class RuneController:
             elif topic == self.config['esp32']['wand_cabinet']:
                 if payload.lower() == 'true':
                     time.sleep(36.8)
+                    for rune_name, (pin_type, light_device) in self.rune_lights.items():
+                        if pin_type == 'mcp':
+                            light_device.value = False
+                        else:  # GPIOZero LED
+                            light_device.off()
                     self.runes_enabled = True
                     logger.info("Wand cabinet opened - runes enabled!")
                     self._publish_mqtt(self.config['runes']['enable'], 'true')
