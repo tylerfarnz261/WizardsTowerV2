@@ -430,6 +430,7 @@ class RuneController:
                 
                 # Deactivate fireplace rune after successful casting
                 self.game_state['fireplace_rune_disabled'] = True
+                self._set_rune_light_to_default_state('fire_fireplace')  # Turn off light
                 actions.append("Fireplace rune permanently disabled")
                 logger.info("Fireplace rune disabled permanently after successful casting")
             
@@ -455,6 +456,7 @@ class RuneController:
                     
                     # Deactivate rat rune after successful casting
                     self.game_state['rat_rune_disabled'] = True
+                    self._set_rune_light_to_default_state('dream_rat_cage')  # Turn off light
                     actions.append("Rat rune permanently disabled")
                     logger.info("Rat rune disabled permanently after successful casting")
                 else:
@@ -474,12 +476,14 @@ class RuneController:
                     
                     # Disable only this specific mirror rune after successful casting
                     self.game_state[f'{rune_name}_disabled'] = True
+                    self._set_rune_light_to_default_state(rune_name)  # Turn off light
                     actions.append(f"Mirror {mirror_num} rune permanently disabled")
                     logger.info(f"Mirror {mirror_num} rune disabled permanently after successful casting")
                     
                     # Permanently disable owl rune after successful mirror cast (if not already disabled)
                     if not self.game_state['owl_disabled']:
                         self.game_state['owl_disabled'] = True
+                        self._set_rune_light_to_default_state('owl_painting')  # Turn off light
                         actions.append("Owl rune permanently disabled - mirror knowledge used")
                         logger.info("Owl rune disabled permanently - mirror spell knowledge utilized")
                 else:
@@ -588,12 +592,14 @@ class RuneController:
                 
                 # Disable only this specific mirror rune after successful casting
                 self.game_state[f'{rune_name}_disabled'] = True
+                self._set_rune_light_to_default_state(rune_name)  # Turn off light
                 actions.append(f"Mirror {mirror_num} rune permanently disabled")
                 logger.info(f"Mirror {mirror_num} rune disabled permanently after manual trigger")
                 
                 # Permanently disable owl rune after successful mirror cast (if not already disabled)
                 if not self.game_state['owl_disabled']:
                     self.game_state['owl_disabled'] = True
+                    self._set_rune_light_to_default_state('owl_painting')  # Turn off light
                     actions.append("Owl rune permanently disabled - mirror knowledge used")
                     logger.info("Owl rune disabled permanently - mirror spell knowledge utilized")
 
@@ -604,6 +610,7 @@ class RuneController:
                 
                 # Deactivate fireplace rune after successful casting
                 self.game_state['fireplace_rune_disabled'] = True
+                self._set_rune_light_to_default_state('fire_fireplace')  # Turn off light
                 actions.append("Fireplace rune permanently disabled")
                 logger.info("Fireplace rune disabled permanently after successful casting")
             
@@ -615,6 +622,7 @@ class RuneController:
                 
                 # Deactivate rat rune after successful casting
                 self.game_state['rat_rune_disabled'] = True
+                self._set_rune_light_to_default_state('dream_rat_cage')  # Turn off light
                 actions.append("Rat rune permanently disabled")
                 logger.info("Rat rune disabled permanently after successful casting")
 
@@ -776,14 +784,15 @@ class RuneController:
     
     def _disable_runes_for_shadow_realm(self):
         """Temporarily disable all runes except shadow rune while in shadow realm."""
-        # Note: in_shadow_realm state is used by button monitor loop to only allow shadow rune
-        # We don't disable runes_enabled here as wand cabinet should stay "opened"  
-        logger.info("In shadow realm - only shadow rune will respond to button presses")
+        # Update all rune lights - only shadow rune should be ON in shadow realm
+        self._update_all_rune_light_states()
+        logger.info("In shadow realm - only shadow rune light is ON, others OFF")
     
     def _enable_runes_from_shadow_realm(self):
         """Re-enable runes when exiting shadow realm (except permanently disabled ones)."""
-        # Note: runes_enabled stays True, just in_shadow_realm is set to False
-        logger.info("Exited shadow realm - all runes (except permanently disabled) re-enabled")
+        # Update all rune lights back to their normal states
+        self._update_all_rune_light_states()
+        logger.info("Exited shadow realm - all rune lights restored (except permanently disabled)")
     
     def _reset_torches_to_default(self):
         """Reset all torches to default ON state (used when exiting shadow realm)."""
@@ -851,17 +860,14 @@ class RuneController:
             traceback.print_exc()
     
     def _deactivate_all_runes(self):
-        """Deactivate all runes and turn off all lights."""
+        """Deactivate all runes and set lights to their default ready state."""
         self.active_rune = None
         self.active_rune_start_time = None
         
-        for rune_name, (pin_type, light_device) in self.rune_lights.items():
-            if pin_type == 'mcp':
-                light_device.value = False
-            else:  # GPIOZero LED
-                light_device.off()
+        # Set all rune lights to their default state (instead of turning them all off)
+        self._update_all_rune_light_states()
         
-        logger.info("All runes deactivated")
+        logger.info("All runes deactivated and returned to ready state")
     
     def _return_rune_to_normal_state(self, rune_name: str):
         """Return rune to normal waiting state after spell success."""
@@ -870,30 +876,68 @@ class RuneController:
             self.active_rune = None
             self.active_rune_start_time = None
             
-        # Turn off rune light
-        if rune_name in self.rune_lights:
-            pin_type, light_device = self.rune_lights[rune_name]
-            if pin_type == 'mcp':
-                light_device.value = False
-            else:  # GPIOZero LED
-                light_device.off()
+        # Set rune light to its default ready state (not OFF)
+        self._set_rune_light_to_default_state(rune_name)
             
-        logger.info(f"Rune {rune_name} returned to normal state - ready for new input")
+        logger.info(f"Rune {rune_name} returned to normal ready state")
     
     def _deactivate_rune(self, rune_name: str):
-        """Deactivate specific rune."""
+        """Deactivate specific rune and return to ready state."""
         if self.active_rune == rune_name:
             self.active_rune = None
             self.active_rune_start_time = None
             
-        if rune_name in self.rune_lights:
-            pin_type, light_device = self.rune_lights[rune_name]
-            if pin_type == 'mcp':
-                light_device.value = False
-            else:  # GPIOZero LED
-                light_device.off()
+        # Set rune light to its default ready state (not OFF)
+        self._set_rune_light_to_default_state(rune_name)
             
-        logger.info(f"Rune {rune_name} deactivated")
+        logger.info(f"Rune {rune_name} deactivated and returned to ready state")
+    
+    def _set_rune_light_to_default_state(self, rune_name: str):
+        """Set a rune light to its default state based on current game conditions."""
+        if rune_name not in self.rune_lights:
+            return
+            
+        pin_type, light_device = self.rune_lights[rune_name]
+        should_be_on = self._should_rune_light_be_on(rune_name)
+        
+        if pin_type == 'mcp':
+            light_device.value = should_be_on
+        else:  # GPIOZero LED
+            if should_be_on:
+                light_device.on()
+            else:
+                light_device.off()
+                
+        logger.debug(f"Set rune {rune_name} light to {'ON' if should_be_on else 'OFF'} (default state)")
+    
+    def _should_rune_light_be_on(self, rune_name: str) -> bool:
+        """Determine if a rune light should be ON based on current game state."""
+        # Runes are OFF when permanently disabled
+        if rune_name == 'dream_owl' and self.game_state.get('owl_disabled', False):
+            return False
+        if rune_name.startswith('fire_torch_') and self.game_state.get('torch_runes_disabled', False):
+            return False
+        if rune_name == 'fire_fireplace' and self.game_state.get('fireplace_rune_disabled', False):
+            return False
+        if rune_name == 'dream_rat_cage' and self.game_state.get('rat_rune_disabled', False):
+            return False
+        if rune_name == 'mirror_1' and self.game_state.get('mirror_1_disabled', False):
+            return False
+        if rune_name == 'mirror_2' and self.game_state.get('mirror_2_disabled', False):
+            return False
+            
+        # In shadow realm, only shadow rune should be ON
+        if self.game_state.get('in_shadow_realm', False):
+            return rune_name == 'shadow_realm'
+            
+        # Otherwise, rune should be ON if system is enabled
+        return self.runes_enabled
+    
+    def _update_all_rune_light_states(self):
+        """Update all rune lights to their current default states."""
+        for rune_name in self.rune_lights.keys():
+            self._set_rune_light_to_default_state(rune_name)
+        logger.debug("Updated all rune lights to their default states")
     
     def _publish_mqtt(self, topic: str, payload: str):
         """Publish MQTT message."""
