@@ -242,9 +242,9 @@ class RuneController:
                     time.sleep(36.8)
                     for rune_name, (pin_type, light_device) in self.rune_lights.items():
                         if pin_type == 'mcp':
-                            light_device.value = False
+                            light_device.value = True
                         else:  # GPIOZero LED
-                            light_device.off()
+                            light_device.on()
                     self.runes_enabled = True
                     logger.info("Wand cabinet opened - runes enabled!")
                     self._publish_mqtt(self.config['runes']['enable'], 'true')
