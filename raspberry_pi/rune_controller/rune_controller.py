@@ -280,11 +280,12 @@ class RuneController:
     def _reset_system_to_defaults(self):
         """Reset the entire rune system to default state."""
         try:
+
+             # Reset runes enabled state
+            self.runes_enabled = False
+
             # Deactivate all runes and turn off lights
             self._deactivate_all_runes()
-            
-            # Reset runes enabled state
-            self.runes_enabled = False
             
             # Reset all game state to defaults
             self.game_state = {
