@@ -21,8 +21,6 @@ Hardware:
 Author: Wizards Control System
 """
 #TODO Rune fizzle noise on timeout
-#TODO turn torch runes off after being solved
-#TODO Turn owl rune off after either mirror activation
 #TODO Audio activation when paradox first pressed
 import time
 import threading
@@ -492,7 +490,7 @@ class RuneController:
                     # Permanently disable owl rune after successful mirror cast (if not already disabled)
                     if not self.game_state['owl_disabled']:
                         self.game_state['owl_disabled'] = True
-                        self._set_rune_light_to_default_state('owl_painting')  # Turn off light
+                        self._set_rune_light_to_default_state('dream_owl')  # Turn off light
                         actions.append("Owl rune permanently disabled - mirror knowledge used")
                         logger.info("Owl rune disabled permanently - mirror spell knowledge utilized")
                 else:
@@ -608,7 +606,7 @@ class RuneController:
                 # Permanently disable owl rune after successful mirror cast (if not already disabled)
                 if not self.game_state['owl_disabled']:
                     self.game_state['owl_disabled'] = True
-                    self._set_rune_light_to_default_state('owl_painting')  # Turn off light
+                    self._set_rune_light_to_default_state('dream_owl')  # Turn off Rune light, its deactivated rest of game
                     actions.append("Owl rune permanently disabled - mirror knowledge used")
                     logger.info("Owl rune disabled permanently - mirror spell knowledge utilized")
 
