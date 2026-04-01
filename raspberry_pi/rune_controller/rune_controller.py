@@ -14,14 +14,13 @@ Functions:
 - Interface with Windows audio system
 
 Hardware:
-- Raspberry Pi with two MCP23017 GPIO expanders (I2C addresses 0x20, 0x21)
+- Raspberry Pi with two MCP23017 GPIO expanders (I2C address 0x20)
 - Multiple runes with buttons and LEDs
 - MQTT network connectivity
 
 Author: Wizards Control System
 """
-#TODO Rune fizzle noise on timeout
-#TODO Audio activation when paradox first pressed
+
 import time
 import threading
 import logging
@@ -74,6 +73,7 @@ class RuneController:
             'first_four_crystals_placed': False,
             'paradox_rune_unlocked': False,
             'shadow_rune_used_before': False,
+            'paradox_rune_used_before': False,
             'in_shadow_realm': False,  # Track if currently in shadow realm
             'shadow_realm_toggle_active': True,  # Track if shadow realm toggle is still active
             'owl_activation_count': 0,  # Track owl usage
@@ -298,6 +298,7 @@ class RuneController:
                 'first_four_crystals_placed': False,
                 'paradox_rune_unlocked': False,
                 'shadow_rune_used_before': False,
+                'paradox_rune_used_before': False,
                 'in_shadow_realm': False,
                 'shadow_realm_toggle_active': True,
                 'owl_activation_count': 0,
@@ -367,6 +368,7 @@ class RuneController:
                 'first_four_crystals_placed': False,
                 'paradox_rune_unlocked': False,
                 'shadow_rune_used_before': False,
+                'paradox_rune_used_before': False,
                 'in_shadow_realm': False,
                 'shadow_realm_toggle_active': True,
                 'owl_activation_count': 0,
@@ -546,11 +548,14 @@ class RuneController:
                     actions.append("Exited shadow realm - returned to normal realm and re-enabled runes")
             
             # Paradox rune
-            #TODO retrieve audio from FIVER and put into Houdini
             elif rune_name == 'paradox':
                 if self.game_state['paradox_rune_unlocked']:
-                    self._request_audio_play('paradox_rune')
-                    time.sleep(10) #TODO Adjust sleep for professor paradox
+                    # Only play audio on first use
+                    if not self.game_state['paradox_rune_used_before']:
+                        self._request_audio_play('paradox_rune')
+                        time.sleep(23.8)
+                        self.game_state['paradox_rune_used_before'] = True
+                    
                     self._publish_mqtt(self.config['sprite_players']['paradox'], 'activate')
                     
                     # Disable shadow realm toggle permanently
@@ -1089,7 +1094,7 @@ class RuneController:
                     
                     if elapsed >= active_duration:
                         # Deactivate the rune after timeout
-                        self._request_audio_play("rune_fizzled")  # Play fizzle sound effect
+                        self._request_audio_play("rune_fizzle")  # Play fizzle sound effect
                         logger.info(f"Rune {self.active_rune} timed out after {active_duration} seconds")
                         self._deactivate_rune(self.active_rune)
                     else:

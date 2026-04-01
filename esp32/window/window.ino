@@ -1,5 +1,5 @@
 /*
-  Wizards - Window ESP32 Controller
+  Wizard's Tower - Window ESP32 Controller
   ==================================
   
   This ESP32 controls a sprite player to display different video sequences 
@@ -20,7 +20,7 @@
   - escaperoom/lighting/blacklights (shadow realm state)
   - escaperoom/sprite_players/paradox (paradox activation)
   
-  Author: Wizards Control System
+  Author: Tyler Farnsworth
 */
 
 #include <WiFi.h>

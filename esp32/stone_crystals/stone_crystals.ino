@@ -1,5 +1,5 @@
 /*
-  Escape Room - Stone Crystals ESP32 Controller
+  Wizard's Tower Escape Room - Stone Crystals ESP32 Controller
   ============================================
   
   This ESP32 controls the crystal placement puzzle with 5 colored crystals.
@@ -20,7 +20,7 @@
   Crystal Colors: RED, GREEN, BLUE, PURPLE, WHITE
   Sequence: First 4 (RED, BLUE, PURPLE, WHITE) must be placed before GREEN
   
-  Author: Escape Room Control System
+  Author: Tyler Farnsworth
 */
 
 #include <WiFi.h>
@@ -47,7 +47,7 @@ const char* topic_win_condition = "escaperoom/gamestate/win";
 const char* topic_reset = "escaperoom/system/reset";
 
 // Hardware pins for crystal sensors
-const int CRYSTAL_PINS[5] = {2, 4, 5, 18, 19};  // RED, GREEN, BLUE, PURPLE, WHITE
+const int CRYSTAL_PINS[5] = {16, 17, 5, 18, 19};  // RED, GREEN, BLUE, PURPLE, WHITE
 const int SWORD_PIN = 21;  // Sword input pin
 
 // Crystal definitions
@@ -73,6 +73,8 @@ bool green_unlocked = false;
 bool all_crystals_complete = false;
 bool sequence_in_progress = false;
 bool first_four_ever_completed = false;  // Track if fanfare has ever been played
+bool first_four_solved = false;  // Track if first four was solved via MQTT
+bool all_crystals_solved = false;  // Track if all crystals was solved via MQTT
 bool sword_enabled = false;
 bool sword_placed = false;
 bool sword_prev_state = false;
@@ -171,6 +173,16 @@ void reconnect_mqtt() {
       mqtt_client.subscribe(topic_reset);
       Serial.println("Subscribed to reset topic");
       
+      // Subscribe to own topics to prevent re-triggering after manual activation
+      mqtt_client.subscribe(topic_first_four_placed);
+      mqtt_client.subscribe(topic_all_placed);
+      Serial.println("Subscribed to self-publishing topics");
+      
+      // Subscribe to own topics to prevent re-triggering after manual activation
+      mqtt_client.subscribe(topic_first_four_placed);
+      mqtt_client.subscribe(topic_all_placed);
+      Serial.println("Subscribed to self-publishing topics");
+      
     } else {
       Serial.print(" failed, rc=");
       Serial.print(mqtt_client.state());
@@ -195,6 +207,16 @@ void mqtt_callback(char* topic, byte* payload, unsigned int length) {
   if (String(topic) == topic_reset && message.equalsIgnoreCase("true")) {
     Serial.println("RESET COMMAND RECEIVED - Resetting to default state");
     reset_game_state();
+  }
+  // Handle first four crystals solved (prevents re-triggering)
+  else if (String(topic) == topic_first_four_placed && message.equalsIgnoreCase("true")) {
+    Serial.println("First four crystals marked as solved - preventing physical re-trigger");
+    first_four_solved = true;
+  }
+  // Handle all crystals solved (prevents re-triggering)
+  else if (String(topic) == topic_all_placed && message.equalsIgnoreCase("true")) {
+    Serial.println("All crystals marked as solved - preventing physical re-trigger");
+    all_crystals_solved = true;
   }
 }
 
@@ -317,6 +339,12 @@ void check_game_state() {
 }
 
 void first_four_complete_event() {
+  // Check if already solved (prevents re-triggering)
+  if (first_four_solved) {
+    Serial.println("First four crystals already solved - ignoring physical trigger");
+    return;
+  }
+  
   Serial.println("=== FIRST FOUR CRYSTALS PLACED! ===");
   Serial.println("GREEN crystal is now UNLOCKED!");
   
@@ -334,6 +362,12 @@ void first_four_complete_event() {
 }
 
 void all_crystals_complete_event() {
+  // Check if already solved (prevents re-triggering)
+  if (all_crystals_solved) {
+    Serial.println("All crystals already solved - ignoring physical trigger");
+    return;
+  }
+  
   Serial.println("=== ALL CRYSTALS PLACED! ===");
   Serial.println("PULL SWORD SEQUENCE INITIATED!");
   
@@ -427,6 +461,8 @@ void reset_game_state() {
   all_crystals_complete = false;
   sequence_in_progress = false;
   first_four_ever_completed = false;
+  first_four_solved = false;  // Reset MQTT solved flags
+  all_crystals_solved = false;
   
   // Reset sword state
   sword_enabled = false;

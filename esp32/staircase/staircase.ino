@@ -1,5 +1,5 @@
 /*
-  Wizards - Staircase ESP32 Controller
+  Wizard's Tower - Staircase ESP32 Controller
   ========================================
   
   This ESP32 controls the staircase puzzle with 5 buttons and NeoPixel strips.
@@ -15,7 +15,7 @@
   MQTT Topics:
   - Publishes: escaperoom/esp32/staircase/solved
   
-  Author: Wizards Control System
+  Author: Tyler Farnsworth
 */
 
 #include <WiFi.h>
@@ -41,7 +41,7 @@ const char* topic_staircase_solved = "escaperoom/esp32/staircase/solved";
 const char* topic_reset = "escaperoom/system/reset";
 
 // Hardware pins
-const int BUTTON_PINS[5] = {2, 4, 5, 18, 19};  // 5 stair buttons
+const int BUTTON_PINS[5] = {16, 17, 5, 18, 19};  // 5 stair buttons
 const int NEOPIXEL_PIN = 13;
 
 // NeoPixel configuration
@@ -174,6 +174,10 @@ void reconnect_mqtt() {
       mqtt_client.subscribe(topic_reset);
       Serial.println("Subscribed to reset topic");
       
+      // Subscribe to own topic to prevent re-triggering after manual activation
+      mqtt_client.subscribe(topic_staircase_solved);
+      Serial.println("Subscribed to self-publishing topic");
+      
     } else {
       Serial.print(" failed, rc=");
       Serial.print(mqtt_client.state());
@@ -198,6 +202,11 @@ void mqtt_callback(char* topic, byte* payload, unsigned int length) {
   if (String(topic) == topic_reset && message.equalsIgnoreCase("true")) {
     Serial.println("RESET COMMAND RECEIVED - Resetting to default state");
     reset_game_state();
+  }
+  // Handle staircase solved (prevents re-triggering)
+  else if (String(topic) == topic_staircase_solved && message.equalsIgnoreCase("true")) {
+    Serial.println("Staircase marked as solved - preventing physical re-trigger");
+    puzzle_solved = true;
   }
 }
 
@@ -311,7 +320,14 @@ void check_solution() {
 }
 
 void staircase_solved() {
+  // Check if already solved (prevents re-triggering)
+  if (puzzle_solved) {
+    Serial.println("Staircase already solved - ignoring physical trigger");
+    return;
+  }
+  
   Serial.println("=== STAIRCASE PUZZLE SOLVED! ===");
+  puzzle_solved = true;  // Mark as solved
   
   // Trigger staircase completion sound
   trigger_audio_event("staircase_victory");

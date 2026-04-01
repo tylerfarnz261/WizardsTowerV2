@@ -126,6 +126,10 @@ void reconnect_mqtt() {
       mqtt_client.subscribe(topic_reset);
       Serial.println("Subscribed to reset topic");
       
+      // Subscribe to own topic to prevent re-triggering after manual activation
+      mqtt_client.subscribe(topic_wand_opened);
+      Serial.println("Subscribed to self-publishing topic");
+      
     } else {
       Serial.print(" failed, rc=");
       Serial.print(mqtt_client.state());
@@ -151,6 +155,11 @@ void mqtt_callback(char* topic, byte* payload, unsigned int length) {
   if (String(topic) == topic_reset && message.equalsIgnoreCase("true")) {
     Serial.println("RESET COMMAND RECEIVED - Resetting cabinet state");
     reset_cabinet_state();
+  }
+  // Handle wand cabinet opened (prevents re-triggering)
+  else if (String(topic) == topic_wand_opened && message.equalsIgnoreCase("true")) {
+    Serial.println("Wand cabinet marked as opened - preventing physical re-trigger");
+    cabinet_was_opened = true;
   }
 }
 

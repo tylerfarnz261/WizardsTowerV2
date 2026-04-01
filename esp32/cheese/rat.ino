@@ -31,26 +31,26 @@ const char* ssid = "Verizon_V3N3DV";
 const char* password = "tarry4says9nick";
 
 // MQTT settings
-const char* mqtt_server = "wizardscontroller.local";
+const char* mqtt_server = "192.168.0.194";
 const int mqtt_port = 1883;
-const char* device_id = "cheese_esp32";
+const char* device_id = "watcher_esp32";
 
 // MQTT topics
-const char* topic_cheese_pressed = "escaperoom/esp32/cheese/pressed";
+const char* topic_watcher_pressed = "escaperoom/esp32/watcher/pressed";
 const char* topic_reset = "escaperoom/esp32/combined/reset";
 
 // Hardware pins
-const int CHEESE_SENSOR_PIN = 6;    // Cheese sensor input pin
+const int WATCHER_SENSOR_PIN = 6;   // Watcher paintings sensor input pin
 
 // Debounce settings for both sensors
 const unsigned long DEBOUNCE_DELAY = 50;  // milliseconds
 
-// Cheese sensor variables
-unsigned long cheese_last_debounce_time = 0;
-bool cheese_last_sensor_state = HIGH;
-bool cheese_current_sensor_state = HIGH;
-bool cheese_was_triggered = false;
-bool cheese_solved = false;  // Track if solved via MQTT
+// Watcher sensor variables
+unsigned long watcher_last_debounce_time = 0;
+bool watcher_last_sensor_state = HIGH;
+bool watcher_current_sensor_state = HIGH;
+bool watcher_was_triggered = false;
+bool watcher_solved = false;  // Track if solved via MQTT
 
 // WiFi and MQTT clients
 WiFiClient espClient;
@@ -60,11 +60,11 @@ void setup() {
   Serial.begin(115200);
   delay(1000);
   
-  Serial.println("=== Cheese ESP32 Controller ===");
+  Serial.println("=== Watcher Paintings ESP32 Controller ===");
   Serial.println("Initializing...");
   
   // Initialize pins
-  pinMode(CHEESE_SENSOR_PIN, INPUT_PULLUP);
+  pinMode(WATCHER_SENSOR_PIN, INPUT_PULLUP);
   
   // Connect to WiFi
   setup_wifi();
@@ -74,8 +74,8 @@ void setup() {
   mqtt_client.setCallback(mqtt_callback);
   
   Serial.println("Initialization complete");
-  Serial.println("Waiting for cheese interaction...");
-  Serial.println("Cheese sensor on pin 6");
+  Serial.println("Waiting for watcher paintings interaction...");
+  Serial.println("Watcher sensor on pin 6");
 }
 
 void loop() {
@@ -85,8 +85,8 @@ void loop() {
   }
   mqtt_client.loop();
   
-  // Read and process cheese sensor input
-  process_cheese_sensor_input();
+  // Read and process sensor input
+  process_watcher_sensor_input();
   
   // Publish heartbeat periodically
   publish_heartbeat();
@@ -136,8 +136,8 @@ void reconnect_mqtt() {
       Serial.println(topic_reset);
       
       // Subscribe to own topics to prevent re-triggering after manual activation
-      mqtt_client.subscribe(topic_cheese_pressed);
-      Serial.println("Subscribed to self-publishing topic");
+      mqtt_client.subscribe(topic_watcher_pressed);
+      Serial.println("Subscribed to self-publishing topics");
       
     } else {
       Serial.print(" failed, rc=");
@@ -166,67 +166,67 @@ void mqtt_callback(char* topic, byte* payload, unsigned int length) {
       reset_system();
     }
   }
-  // Handle cheese solved (prevents re-triggering)
-  else if (String(topic) == topic_cheese_pressed && message.equalsIgnoreCase("true")) {
-    Serial.println("Cheese marked as solved - preventing physical re-trigger");
-    cheese_solved = true;
+  // Handle watcher solved (prevents re-triggering)
+  else if (String(topic) == topic_watcher_pressed && message.equalsIgnoreCase("true")) {
+    Serial.println("Watcher marked as solved - preventing physical re-trigger");
+    watcher_solved = true;
   }
 }
 
-void process_cheese_sensor_input() {
-  // Read the cheese sensor (LOW when triggered with pull-up)
-  bool reading = digitalRead(CHEESE_SENSOR_PIN);
+void process_watcher_sensor_input() {
+  // Read the watcher sensor (LOW when paintings aligned with pull-up)
+  bool reading = digitalRead(WATCHER_SENSOR_PIN);
   
   // Handle debouncing
-  if (reading != cheese_last_sensor_state) {
-    cheese_last_debounce_time = millis();
+  if (reading != watcher_last_sensor_state) {
+    watcher_last_debounce_time = millis();
   }
   
-  if ((millis() - cheese_last_debounce_time) > DEBOUNCE_DELAY) {
-    if (reading != cheese_current_sensor_state) {
-      cheese_current_sensor_state = reading;
+  if ((millis() - watcher_last_debounce_time) > DEBOUNCE_DELAY) {
+    if (reading != watcher_current_sensor_state) {
+      watcher_current_sensor_state = reading;
       
-      // Check for sensor activation (LOW = triggered with pull-up)
-      if (cheese_current_sensor_state == LOW && !cheese_was_triggered) {
+      // Check for paintings alignment (LOW = aligned with pull-up)
+      if (watcher_current_sensor_state == LOW && !watcher_was_triggered) {
         // Check if already solved (prevents re-triggering)
-        if (cheese_solved) {
-          Serial.println("Cheese already solved - ignoring physical trigger");
+        if (watcher_solved) {
+          Serial.println("Watcher already solved - ignoring physical trigger");
         } else {
-          cheese_triggered();
-          cheese_was_triggered = true;  // Only trigger once until reset
+          watcher_triggered();
+          watcher_was_triggered = true;  // Only trigger once until reset
         }
       }
     }
   }
   
-  cheese_last_sensor_state = reading;
+  watcher_last_sensor_state = reading;
 }
 
-void cheese_triggered() {
-  Serial.println("=== CHEESE TRIGGERED! ===");
+void watcher_triggered() {
+  Serial.println("=== WATCHER PAINTINGS ALIGNED! ===");
+  Serial.println("Maglock will unlock!");
   
   if (mqtt_client.connected()) {
-    // Publish cheese pressed event (unlocks rat trap door maglock)
-    mqtt_client.publish(topic_cheese_pressed, "true");
-    Serial.println("Published: Cheese pressed - rat trap door will unlock");
-    
+    mqtt_client.publish(topic_watcher_pressed, "true");
+    Serial.println("Published: Watcher paintings triggered - maglock unlocked");
+
   } else {
-    Serial.println("MQTT not connected - messages not sent!");
+    Serial.println("MQTT not connected - watcher message not sent!");
   }
 }
 
 void reset_system() {
   Serial.println("=== SYSTEM RESET TRIGGERED ===");
-  Serial.println("Resetting cheese sensor to original state...");
+  Serial.println("Resetting both cheese and watcher sensors to original state...");
   
-  // Reset cheese sensor state
-  cheese_was_triggered = false;
-  cheese_solved = false;  // Reset solved flag
-  cheese_last_debounce_time = 0;
-  cheese_last_sensor_state = HIGH;
-  cheese_current_sensor_state = HIGH;
+  // Reset watcher sensor state
+  watcher_was_triggered = false;
+  watcher_solved = false;  // Reset solved flag
+  watcher_last_debounce_time = 0;
+  watcher_last_sensor_state = HIGH;
+  watcher_current_sensor_state = HIGH;
   
-  Serial.println("System reset complete - cheese sensor ready for activation");
+  Serial.println("System reset complete - both sensors ready for activation");
   
   // Publish reset confirmation
   if (mqtt_client.connected()) {
@@ -245,7 +245,8 @@ void publish_heartbeat() {
       String heartbeat_topic = String("escaperoom/heartbeat/") + device_id;
       String heartbeat_data = String("{\"uptime\":") + (current_time / 1000) + 
                              ",\"free_heap\":" + ESP.getFreeHeap() + 
-                             ",\"cheese_triggered\":" + (cheese_was_triggered ? "true" : "false") + "}";
+                             ",\"cheese_triggered\":" + (cheese_was_triggered ? "true" : "false") +
+                             ",\"watcher_triggered\":" + (watcher_was_triggered ? "true" : "false") + "}";
       
       mqtt_client.publish(heartbeat_topic.c_str(), heartbeat_data.c_str());
     }

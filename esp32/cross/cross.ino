@@ -1,5 +1,5 @@
 /*
-  Escape Room - Cross/Purple Crystal ESP32 Controller
+  Wizard's Tower - Cross/Purple Crystal ESP32 Controller
   ==================================================
   
   This ESP32 controls the cross button input.
@@ -14,7 +14,7 @@
   MQTT Topics:
   - Publishes: escaperoom/esp32/cross/pressed
   
-  Author: Escape Room Control System
+  Author: Tyler Farnsworth
 */
 
 #include <WiFi.h>
@@ -129,6 +129,10 @@ void reconnect_mqtt() {
       mqtt_client.subscribe(topic_reset);
       Serial.println("Subscribed to reset topic");
       
+      // Subscribe to own topic to prevent re-triggering after manual activation
+      mqtt_client.subscribe(topic_cross_pressed);
+      Serial.println("Subscribed to self-publishing topic");
+      
     } else {
       Serial.print(" failed, rc=");
       Serial.print(mqtt_client.state());
@@ -154,6 +158,11 @@ void mqtt_callback(char* topic, byte* payload, unsigned int length) {
   if (String(topic) == topic_reset && message.equalsIgnoreCase("true")) {
     Serial.println("RESET COMMAND RECEIVED - Resetting button state");
     reset_button_state();
+  }
+  // Handle cross pressed (prevents re-triggering)
+  else if (String(topic) == topic_cross_pressed && message.equalsIgnoreCase("true")) {
+    Serial.println("Cross marked as pressed - preventing physical re-trigger");
+    button_was_pressed = true;
   }
 }
 

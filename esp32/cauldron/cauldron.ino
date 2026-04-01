@@ -1,5 +1,5 @@
 /*
-  Wizards - Cauldron ESP32 Controller
+  Wizard's Tower - Cauldron ESP32 Controller
   =======================================
   
   This ESP32 controls the cauldron input and sends serial commands
@@ -17,7 +17,7 @@
   MQTT Topics:
   - Publishes: escaperoom/gamestate/cauldron_solved
   
-  Author: Wizards Control System
+  Author: Tyler Farnsworth
 */
 
 #include <WiFi.h>
@@ -54,6 +54,7 @@ unsigned long last_debounce_time = 0;
 bool last_sensor_state = HIGH;
 bool current_sensor_state = HIGH;
 bool cauldron_was_triggered = false;
+bool cauldron_solved = false;  // Track if solved via MQTT
 
 // WiFi and MQTT clients
 WiFiClient espClient;
@@ -145,6 +146,10 @@ void reconnect_mqtt() {
       Serial.print("Subscribed to reset topic: ");
       Serial.println(topic_reset);
       
+      // Subscribe to own topic to prevent re-triggering after manual activation
+      mqtt_client.subscribe(topic_cauldron_solved);
+      Serial.println("Subscribed to self-publishing topic");
+      
       // Publish online status
       String status_topic = String("escaperoom/status/") + device_id;
       mqtt_client.publish(status_topic.c_str(), "online");
@@ -176,6 +181,12 @@ void mqtt_callback(char* topic, byte* payload, unsigned int length) {
       reset_system();
     }
   }
+  // Handle cauldron solved (this actually allows re-triggering via MQTT, but prevents physical re-triggering after solved))
+  else if (String(topic) == topic_cauldron_solved && message.equalsIgnoreCase("true")) {
+    Serial.println("Cauldron Manually Triggered via MQTT - marking as solved");
+    cauldron_triggered();
+    cauldron_solved = true;  // Mark as solved via MQTT
+  }
 }
 
 void process_sensor_input() {
@@ -193,8 +204,13 @@ void process_sensor_input() {
       
       // Check for sensor activation (input grounded = cauldron solved)
       if (current_sensor_state == LOW && !cauldron_was_triggered) {
-        cauldron_triggered();
-        cauldron_was_triggered = true;  // Only solve once until reset
+        // Check if already solved (prevents re-triggering)
+        if (cauldron_solved) {
+          Serial.println("Cauldron already solved - ignoring physical trigger");
+        } else {
+          cauldron_triggered();
+          cauldron_was_triggered = true;  // Only solve once until reset
+        }
       }
     }
   }
@@ -240,6 +256,7 @@ void reset_system() {
   
   // Reset cauldron state
   cauldron_was_triggered = false;
+  cauldron_solved = false;  // Reset solved flag
   last_debounce_time = 0;
   last_sensor_state = HIGH;
   current_sensor_state = HIGH;

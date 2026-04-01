@@ -1,5 +1,5 @@
 /*
-  Escape Room - Dials ESP32 Controller
+  Wizard's Tower - Dials ESP32 Controller
   ====================================
   
   This ESP32 controls the treasure chest dials puzzle.
@@ -14,7 +14,7 @@
   MQTT Topics:
   - Publishes: escaperoom/esp32/dials/solved
   
-  Author: Escape Room Control System
+  Author: Tyler Farnsworth
 */
 
 #include <WiFi.h>
@@ -122,8 +122,10 @@ void reconnect_mqtt() {
       
       // Subscribe to reset topic
       mqtt_client.subscribe(topic_reset);
-      Serial.print("Subscribed to reset topic: ");
-      Serial.println(topic_reset);
+      Serial.print("Subscribed to reset topic: ");      
+      // Subscribe to own topic to prevent re-triggering after manual activation
+      mqtt_client.subscribe(topic_dials_solved);
+      Serial.println("Subscribed to self-publishing topic");      Serial.println(topic_reset);
       
       String status_topic = String("escaperoom/status/") + device_id;
       mqtt_client.publish(status_topic.c_str(), "online");
@@ -153,6 +155,11 @@ void mqtt_callback(char* topic, byte* payload, unsigned int length) {
     if (message == "reset" || message == "true") {
       reset_system();
     }
+  }
+  // Handle dials solved (prevents re-triggering)
+  else if (String(topic) == topic_dials_solved && message.equalsIgnoreCase("true")) {
+    Serial.println("Dials marked as solved - preventing physical re-trigger");
+    dials_were_solved = true;
   }
 }
 
