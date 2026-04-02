@@ -498,6 +498,7 @@ class CentralController:
         """Handle the win condition - play wizards win audio and deactivate all runes."""
         try:
             logger.info("WIN CONDITION TRIGGERED! Playing wizards win audio...")
+            self._lock_maglock("sword_maglock") #Swword Mag is a solenoid so it needs to toggle off as soon as possible
             
             # Play wizards win audio
             self._request_audio_play('wizards_win')

@@ -1,10 +1,9 @@
 /*
-  Escape Room - Combined Cheese & Watcher Paintings ESP32 Controller
+  Escape Room - Combined Cheese ESP32 Controller
   ===================================================================
   
-  This ESP32 controls both:
+  This ESP32 controls:
   1. Cheese input sensor - triggers cheese audio playback and unlocks rat trap door maglock
-  2. Watcher paintings input - when aligned, unlocks a maglock
   
   Both sensors can only activate once until system is reset via MQTT.
   
@@ -37,7 +36,7 @@ const char* device_id = "cheese_esp32";
 
 // MQTT topics
 const char* topic_cheese_pressed = "escaperoom/esp32/cheese/pressed";
-const char* topic_reset = "escaperoom/esp32/combined/reset";
+const char* topic_reset = "escaperoom/system/reset";
 
 // Hardware pins
 const int CHEESE_SENSOR_PIN = 6;    // Cheese sensor input pin
